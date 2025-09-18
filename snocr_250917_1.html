@@ -1514,22 +1514,7 @@
   </footer>
 
   <script>
-    // 사이드바 항목 설정
-    const NAV = [
-      { id: 'landing', label: 'Landing', icon: 'home' },
-      { id: 'upload', label: 'Upload & Grade', icon: 'upload' },
-      { id: 'result', label: 'Result', icon: 'file-text' },
-      { id: 'mypage', label: 'My Page (Student)', icon: 'user' },
-      { id: 'teacher-mypage', label: 'My Page (Teacher)', icon: 'users' },
-      { id: 'analytics', label: 'Analytics', icon: 'bar-chart-3' },
-      { id: 'admin', label: 'Admin', icon: 'layout-dashboard' },
-      { id: 'announce', label: 'Announcements', icon: 'megaphone' },
-      { id: 'faq', label: 'FAQ & Support', icon: 'help-circle' },
-      { id: 'pricing', label: 'Pricing', icon: 'credit-card' },
-      { id: 'legal', label: 'Legal', icon: 'shield' },
-    ];
 
-    const sidebar = document.getElementById('sidebar');
     const pages = document.querySelectorAll('.page');
 
     function goto(id) {
@@ -1549,20 +1534,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 사이드바 생성
-    NAV.forEach(({ id, label, icon }) => {
-      const btn = document.createElement('button');
-      btn.className = 'group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-neutral-100 text-neutral-800';
-      btn.dataset.page = id;
-      btn.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${label}`;
-      btn.addEventListener('click', () => goto(id));
-      sidebar.appendChild(btn);
-    });
-
-    // 헤더 단축 이동
-    document.querySelectorAll('[data-goto]').forEach(el => {
-      el.addEventListener('click', () => goto(el.dataset.goto));
-    });
 
     // 인증 모달
     const authModal = document.getElementById('authModal');
@@ -1604,20 +1575,6 @@
     // Footer year
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Analytics 페이지 그래프 초기화
-    initializeAnalyticsCharts();
-
-    // 오답률 데이터 초기화
-    initializeWrongAnswerData();
-
-    // 점수 추이 차트 초기화
-    initializeScoreTrendChart();
-
-    // 오답노트 데이터 초기화
-    initializeWrongNotesData();
-
-    // AI 변형문제 생성 데이터 초기화
-    initializeAIProblemGeneration();
 
     // 반별 채점인원 및 평균점수 그래프 초기화
     function initializeAnalyticsCharts() {
@@ -1762,12 +1719,6 @@
       }
     }
 
-    // 오답률 데이터 초기화
-    function initializeWrongAnswerData() {
-      // 기본적으로 수학 데이터를 표시
-      filterWrongAnswers();
-    }
-
     // 과목별 오답률 데이터
     const wrongAnswerData = {
       '수학': [
@@ -1879,12 +1830,12 @@
       }
     }
 
-    // 점수 추이 차트 초기화
-    function initializeScoreTrendChart() {
+    // 오답률 데이터 초기화
+    function initializeWrongAnswerData() {
       // 기본적으로 수학 데이터를 표시
-      updateScoreTrendChart();
+      filterWrongAnswers();
     }
-
+    
     // 점수 추이 데이터
     const scoreTrendData = {
       '수학': {
@@ -1927,6 +1878,12 @@
 
     let scoreTrendChartInstance = null;
 
+    // 점수 추이 차트 초기화
+    function initializeScoreTrendChart() {
+      // 기본적으로 수학 데이터를 표시
+      updateScoreTrendChart();
+    }
+    
     // 점수 추이 차트 업데이트
     function updateScoreTrendChart() {
       const selectedSubject = document.getElementById('scoreTrendSubjectFilter').value;
@@ -3631,114 +3588,259 @@
 
     // 페이지 로드 시 초기화
     document.addEventListener('DOMContentLoaded', () => {
+      // 사이드바 항목 설정
+      const NAV = [
+        { id: 'landing', label: 'Landing', icon: 'home' },
+        { id: 'upload', label: 'Upload & Grade', icon: 'upload' },
+        { id: 'result', label: 'Result', icon: 'file-text' },
+        { id: 'mypage', label: 'My Page (Student)', icon: 'user' },
+        { id: 'teacher-mypage', label: 'My Page (Teacher)', icon: 'users' },
+        { id: 'analytics', label: 'Analytics', icon: 'bar-chart-3' },
+        { id: 'admin', label: 'Admin', icon: 'layout-dashboard' },
+        { id: 'announce', label: 'Announcements', icon: 'megaphone' },
+        { id: 'faq', label: 'FAQ & Support', icon: 'help-circle' },
+        { id: 'pricing', label: 'Pricing', icon: 'credit-card' },
+        { id: 'legal', label: 'Legal', icon: 'shield' },
+      ];
+
+      // 사이드바 생성
+      console.log('사이드바 생성 시작');
+      const sidebar = document.getElementById('sidebar');
+      console.log('사이드바 요소:', sidebar);
+      if (sidebar) {
+        console.log('NAV 배열:', NAV);
+        NAV.forEach(({ id, label, icon }) => {
+          const btn = document.createElement('button');
+          btn.className = 'group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-neutral-100 text-neutral-800';
+          btn.dataset.page = id;
+          btn.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${label}`;
+          btn.addEventListener('click', () => goto(id));
+          sidebar.appendChild(btn);
+          console.log('메뉴 항목 추가:', label);
+        });
+        console.log('사이드바 생성 완료');
+      } else {
+        console.log('사이드바 요소를 찾을 수 없습니다');
+      }
+
+      // 헤더 단축 이동
+      document.querySelectorAll('[data-goto]').forEach(el => {
+        el.addEventListener('click', () => goto(el.dataset.goto));
+      });
+
       // 초기 문항별 결과 예시 표시 (수학 샘플)
       generateQuestionResults('수학');
-    });
 
-    closeExam.addEventListener('click', () => examModal.classList.remove('open'));
-    cancelExam.addEventListener('click', () => examModal.classList.remove('open'));
-    examModal.addEventListener('click', (e) => {
-      if (e.target === examModal) examModal.classList.remove('open');
-    });
-
-    // 평가기관 변경 이벤트
-    document.querySelectorAll('input[name="examAgency"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        toggleCustomAgency();
-        updateSelectedExam();
+      // 모달 이벤트 리스너들
+      closeExam.addEventListener('click', () => examModal.classList.remove('open'));
+      cancelExam.addEventListener('click', () => examModal.classList.remove('open'));
+      examModal.addEventListener('click', (e) => {
+        if (e.target === examModal) examModal.classList.remove('open');
       });
-    });
 
-    // 과목 변경 이벤트
-    document.querySelectorAll('input[name="subject"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        toggleSubjectDetails();
-        updateSelectedExam();
-      });
-    });
-
-    // 직접입력 체크박스 이벤트
-    customSubjectCheck.addEventListener('change', () => {
-      toggleCustomSubject();
-      updateSelectedExam();
-    });
-
-    // 직접입력 필드 이벤트
-    customAgency.addEventListener('input', updateSelectedExam);
-    customSubject.addEventListener('input', updateSelectedExam);
-
-    // 학년도 변경 이벤트
-    examYear.addEventListener('change', updateSelectedExam);
-
-    // 시행월 변경 이벤트
-    examMonth.addEventListener('change', updateSelectedExam);
-
-    // 확인 버튼 이벤트
-    confirmExam.addEventListener('click', () => {
-      updateSelectedExam();
-      examModal.classList.remove('open');
-    });
-
-    // 정답 입력 모달 이벤트
-    openAnswerModal.addEventListener('click', () => {
-      const selectedSubject = getSelectedSubject();
-      
-      if (!selectedSubject) {
-        // 시험 선택이 안된 경우
-        answerInputContent.innerHTML = `
-          <div class="text-center py-8">
-            <div class="mb-4">
-              <div class="w-16 h-16 mx-auto mb-4 bg-yellow-100 rounded-full flex items-center justify-center">
-                <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                </svg>
-              </div>
-              <h3 class="text-lg font-semibold text-neutral-800 mb-2">시험을 먼저 선택해주세요</h3>
-              <p class="text-neutral-600">시험을 먼저 지정해주신 후 정답을 입력해 주세요.</p>
-            </div>
-            <button onclick="openExamModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              시험 선택하기
-            </button>
-          </div>
-        `;
-      } else {
-        generateAnswerInputForm();
+      // 초기 총 건수 설정
+      const tableBody = document.getElementById('recordsTableBody');
+      if (tableBody) {
+        const rows = tableBody.querySelectorAll('tr');
+        const totalCountElement = document.getElementById('totalCount');
+        if (totalCountElement) {
+          totalCountElement.textContent = `총 ${rows.length}건`;
+        }
       }
+
+      // 모달 외부 클릭 시 닫기
+      const resultModal = document.getElementById('resultModal');
+      if (resultModal) {
+        resultModal.addEventListener('click', function(e) {
+          if (e.target === resultModal) {
+            closeResultModal();
+          }
+        });
+      }
+
+      // 학생 목록 모달 외부 클릭 시 닫기
+      const studentListModal = document.getElementById('studentListModal');
+      if (studentListModal) {
+        studentListModal.addEventListener('click', function(e) {
+          if (e.target === studentListModal) {
+            closeStudentListModal();
+          }
+        });
+      }
+
+      // 평가기관 변경 이벤트
+      document.querySelectorAll('input[name="examAgency"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          toggleCustomAgency();
+          updateSelectedExam();
+        });
+      });
+
+      // 과목 변경 이벤트
+      document.querySelectorAll('input[name="subject"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          toggleSubjectDetails();
+          updateSelectedExam();
+        });
+      });
+
+      // 직접입력 체크박스 이벤트
+      const customSubjectCheck = document.getElementById('customSubjectCheck');
+      if (customSubjectCheck) {
+        customSubjectCheck.addEventListener('change', () => {
+          toggleCustomSubject();
+          updateSelectedExam();
+        });
+      }
+
+      // 직접입력 필드 이벤트
+      const customAgency = document.getElementById('customAgency');
+      if (customAgency) {
+        customAgency.addEventListener('input', updateSelectedExam);
+      }
+
+      // 시험 선택 확인 버튼 이벤트
+      const confirmExam = document.getElementById('confirmExam');
+      if (confirmExam) {
+        confirmExam.addEventListener('click', () => {
+          updateSelectedExam();
+          examModal.classList.remove('open');
+        });
+      }
+
+      // 정답 입력 모달 이벤트
+      const openAnswerModal = document.getElementById('openAnswerModal');
+      if (openAnswerModal) {
+        openAnswerModal.addEventListener('click', () => {
+          const selectedSubject = getSelectedSubject();
+          
+          if (!selectedSubject) {
+            // 시험 선택이 안된 경우
+            const answerInputContent = document.getElementById('answerInputContent');
+            if (answerInputContent) {
+              answerInputContent.innerHTML = `
+                <div class="text-center py-8">
+                  <div class="mb-4">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                      </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-neutral-800 mb-2">시험을 먼저 선택해주세요</h3>
+                    <p class="text-neutral-600">시험을 먼저 지정해주신 후 정답을 입력해 주세요.</p>
+                  </div>
+                  <button onclick="openExamModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    시험 선택하기
+                  </button>
+                </div>
+              `;
+            }
+          } else {
+            generateAnswerInputForm();
+          }
+          
+          const answerModal = document.getElementById('answerModal');
+          if (answerModal) {
+            answerModal.classList.add('open');
+          }
+        });
+      }
+
+      // 정답 모달 닫기 이벤트
+      const closeAnswer = document.getElementById('closeAnswer');
+      const cancelAnswer = document.getElementById('cancelAnswer');
+      const answerModal = document.getElementById('answerModal');
       
-      answerModal.classList.add('open');
+      if (closeAnswer) {
+        closeAnswer.addEventListener('click', () => answerModal.classList.remove('open'));
+      }
+      if (cancelAnswer) {
+        cancelAnswer.addEventListener('click', () => answerModal.classList.remove('open'));
+      }
+      if (answerModal) {
+        answerModal.addEventListener('click', (e) => {
+          if (e.target === answerModal) answerModal.classList.remove('open');
+        });
+      }
+
+      // 정답 확인 버튼 이벤트
+      const confirmAnswer = document.getElementById('confirmAnswer');
+      if (confirmAnswer) {
+        confirmAnswer.addEventListener('click', () => {
+          const answers = collectAnswers();
+          console.log('입력된 정답:', answers);
+          if (answerModal) {
+            answerModal.classList.remove('open');
+          }
+          // 여기에 정답 저장 로직 추가
+        });
+      }
+
+      // 기존 정답 찾기 모달 이벤트
+      const openSearchModal = document.getElementById('openSearchModal');
+      const closeSearch = document.getElementById('closeSearch');
+      const cancelSearch = document.getElementById('cancelSearch');
+      const searchModal = document.getElementById('searchModal');
+      const searchInput = document.getElementById('searchInput');
+      
+      if (openSearchModal) {
+        openSearchModal.addEventListener('click', () => {
+          if (searchModal) {
+            searchModal.classList.add('open');
+          }
+          loadSavedAnswers();
+        });
+      }
+
+      if (closeSearch) {
+        closeSearch.addEventListener('click', () => {
+          if (searchModal) {
+            searchModal.classList.remove('open');
+          }
+        });
+      }
+      if (cancelSearch) {
+        cancelSearch.addEventListener('click', () => {
+          if (searchModal) {
+            searchModal.classList.remove('open');
+          }
+        });
+      }
+      if (searchModal) {
+        searchModal.addEventListener('click', (e) => {
+          if (e.target === searchModal) {
+            searchModal.classList.remove('open');
+          }
+        });
+      }
+
+      // 검색 기능
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const query = e.target.value.toLowerCase();
+          searchAnswers(query);
+        });
+      }
+
+      // Analytics 페이지 그래프 초기화
+      initializeAnalyticsCharts();
+
+      // 오답노트 데이터 초기화
+      initializeWrongNotesData();
+
+      // AI 변형문제 생성 데이터 초기화
+      initializeAIProblemGeneration();
+
+      // 오답률 데이터 초기화
+      initializeWrongAnswerData();
+
+      // 점수 추이 차트 초기화
+      initializeScoreTrendChart();
     });
 
-    closeAnswer.addEventListener('click', () => answerModal.classList.remove('open'));
-    cancelAnswer.addEventListener('click', () => answerModal.classList.remove('open'));
-    answerModal.addEventListener('click', (e) => {
-      if (e.target === answerModal) answerModal.classList.remove('open');
-    });
 
-    // 정답 확인 버튼 이벤트
-    confirmAnswer.addEventListener('click', () => {
-      const answers = collectAnswers();
-      console.log('입력된 정답:', answers);
-      answerModal.classList.remove('open');
-      // 여기에 정답 저장 로직 추가
-    });
 
-    // 기존 정답 찾기 모달 이벤트
-    openSearchModal.addEventListener('click', () => {
-      searchModal.classList.add('open');
-      loadSavedAnswers();
-    });
 
-    closeSearch.addEventListener('click', () => searchModal.classList.remove('open'));
-    cancelSearch.addEventListener('click', () => searchModal.classList.remove('open'));
-    searchModal.addEventListener('click', (e) => {
-      if (e.target === searchModal) searchModal.classList.remove('open');
-    });
-
-    // 검색 기능
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase();
-      searchAnswers(query);
-    });
 
     // 정답 수집 함수
     function collectAnswers() {
@@ -4666,38 +4768,6 @@
       return typeSummaries[subject] || '유형 요약: 기타';
     }
 
-    // 페이지 로드 시 초기화
-    document.addEventListener('DOMContentLoaded', function() {
-      // 초기 총 건수 설정
-      const tableBody = document.getElementById('recordsTableBody');
-      if (tableBody) {
-        const rows = tableBody.querySelectorAll('tr');
-        const totalCountElement = document.getElementById('totalCount');
-        if (totalCountElement) {
-          totalCountElement.textContent = `총 ${rows.length}건`;
-        }
-      }
-
-      // 모달 외부 클릭 시 닫기
-      const resultModal = document.getElementById('resultModal');
-      if (resultModal) {
-        resultModal.addEventListener('click', function(e) {
-          if (e.target === resultModal) {
-            closeResultModal();
-          }
-        });
-      }
-
-      // 학생 목록 모달 외부 클릭 시 닫기
-      const studentListModal = document.getElementById('studentListModal');
-      if (studentListModal) {
-        studentListModal.addEventListener('click', function(e) {
-          if (e.target === studentListModal) {
-            closeStudentListModal();
-          }
-        });
-      }
-    });
   </script>
 
   <!-- 교사용 학생 목록 모달 -->
