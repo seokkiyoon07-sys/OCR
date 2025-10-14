@@ -77,7 +77,7 @@ export function useVirtualization(
 
 // 성능 모니터링 훅
 export function usePerformanceMonitor(componentName: string) {
-  const renderStart = useRef<number>();
+  const renderStart = useRef<number>(0);
 
   useEffect(() => {
     renderStart.current = performance.now();
