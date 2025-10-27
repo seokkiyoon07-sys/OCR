@@ -2,16 +2,153 @@
 
 import { useState } from 'react';
 import SNarOCRLayout from '@/components/SNarOCRLayout';
-import { Download } from 'lucide-react';
+import { Download, ChevronDown, FileDown } from 'lucide-react';
 
 export default function SNarOCRResults() {
-  const [subjectFilter, setSubjectFilter] = useState('all');
-  const [isMoreExamsModalOpen, setIsMoreExamsModalOpen] = useState(false);
+  // 채점 결과 선택 상태
+  const [selectedDate, setSelectedDate] = useState('2025년 9월 15일');
+  const [selectedExam, setSelectedExam] = useState('2025학년도 9월 모의고사');
+  
+  // 드롭다운 상태
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [isExamDropdownOpen, setIsExamDropdownOpen] = useState(false);
+  
+  // 채점 학생 수 (샘플 데이터)
+  const gradedCount = 28;
 
-  // 샘플 데이터
-  const wrongQuestions = [3, 7, 12, 15, 18];
-  const totalScore = 85;
-  const wrongCount = 15;
+  // 과목 선택 상태
+  const [mainSubject, setMainSubject] = useState('국어');
+  const [subSubject, setSubSubject] = useState('');
+
+  // 표시할 과목명 결정 (하위 과목 선택 시 하위 과목명 표시)
+  const getDisplaySubject = () => {
+    if (subSubject) return subSubject;
+    return mainSubject;
+  };
+
+  // 메인 과목 목록
+  const mainSubjects = [
+    { id: '국어', name: '국어' },
+    { id: '수학', name: '수학' },
+    { id: '영어', name: '영어' },
+    { id: '사회탐구', name: '사회탐구' },
+    { id: '과학탐구', name: '과학탐구' },
+    { id: '한국사', name: '한국사' }
+  ];
+
+  // 하위 과목 (사탐, 과탐용)
+  const subSubjects = {
+    사회탐구: [
+      { id: '생활과 윤리', name: '생활과 윤리' },
+      { id: '윤리와 사상', name: '윤리와 사상' },
+      { id: '한국지리', name: '한국지리' },
+      { id: '세계지리', name: '세계지리' },
+      { id: '동아시아사', name: '동아시아사' },
+      { id: '세계사', name: '세계사' },
+      { id: '경제', name: '경제' },
+      { id: '정치와 법', name: '정치와 법' },
+      { id: '사회문화', name: '사회·문화' }
+    ],
+    과학탐구: [
+      { id: '물리학I', name: '물리학I' },
+      { id: '화학I', name: '화학I' },
+      { id: '생명과학I', name: '생명과학I' },
+      { id: '지구과학I', name: '지구과학I' },
+      { id: '물리학II', name: '물리학II' },
+      { id: '화학II', name: '화학II' },
+      { id: '생명과학II', name: '생명과학II' },
+      { id: '지구과학II', name: '지구과학II' }
+    ]
+  };
+
+  // 과목별 총 문항 수 정의
+  const totalQuestionsBySubject = {
+    국어: 45,
+    수학: 30,
+    영어: 45,
+    사회탐구: 20,
+    과학탐구: 20,
+    한국사: 20
+  };
+
+  // 전체 문항에 대한 오답률 데이터 생성
+  const generateAllQuestionsData = () => {
+    const totalQuestions = totalQuestionsBySubject[mainSubject as keyof typeof totalQuestionsBySubject];
+    const allQuestions = [];
+    
+    for (let i = 1; i <= totalQuestions; i++) {
+      const topQuestion = statsData.topWrongQuestions.find(q => q.question === i);
+      const topStudentQuestion = statsData.topStudentsWrongQuestions.find(q => q.question === i);
+      
+      allQuestions.push({
+        question: i,
+        wrongCount: topQuestion?.wrongCount || 0,
+        percentage: topQuestion?.percentage || 0,
+        topStudentWrongCount: topStudentQuestion?.wrongCount || 0,
+        topStudentPercentage: topStudentQuestion?.percentage || 0
+      });
+    }
+    
+    return allQuestions;
+  };
+
+  // CSV 다운로드 함수
+  const downloadWrongAnswersCSV = () => {
+    const allQuestions = generateAllQuestionsData();
+    
+    const csvContent = [
+      '문항,오답수,전체인원,오답률(%),상위권오답수,상위권오답률(%)',
+      ...allQuestions.map((item) => {
+        return `${item.question},${item.wrongCount},${statsData.gradedCount},${item.percentage.toFixed(1)},${item.topStudentWrongCount},${item.topStudentPercentage.toFixed(1)}`;
+      })
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `문항별_오답률_${mainSubject}${subSubject ? '_' + subSubject : ''}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 샘플 통계 데이터 (실제로는 API에서 가져올 데이터)
+  const statsData = {
+    gradedCount: 28,
+    average: 78.5,
+    standardDeviation: 12.3,
+    highestScore: 95,
+    lowestScore: 45,
+    scoreDistribution: [
+      { range: '90-100', count: 3, percentage: 10.7 },
+      { range: '80-89', count: 8, percentage: 28.6 },
+      { range: '70-79', count: 10, percentage: 35.7 },
+      { range: '60-69', count: 5, percentage: 17.9 },
+      { range: '50-59', count: 1, percentage: 3.6 },
+      { range: '0-49', count: 1, percentage: 3.6 }
+    ],
+    topWrongQuestions: [
+      { question: 15, wrongCount: 22, percentage: 78.6 },
+      { question: 8, wrongCount: 20, percentage: 71.4 },
+      { question: 12, wrongCount: 18, percentage: 64.3 },
+      { question: 23, wrongCount: 17, percentage: 60.7 },
+      { question: 30, wrongCount: 16, percentage: 57.1 },
+      { question: 5, wrongCount: 15, percentage: 53.6 },
+      { question: 18, wrongCount: 14, percentage: 50.0 },
+      { question: 33, wrongCount: 13, percentage: 46.4 },
+      { question: 11, wrongCount: 12, percentage: 42.9 },
+      { question: 41, wrongCount: 11, percentage: 39.3 }
+    ],
+    topStudentsWrongQuestions: [
+      { question: 15, wrongCount: 2, percentage: 66.7 },
+      { question: 8, wrongCount: 2, percentage: 66.7 },
+      { question: 23, wrongCount: 1, percentage: 33.3 },
+      { question: 12, wrongCount: 1, percentage: 33.3 },
+      { question: 30, wrongCount: 1, percentage: 33.3 }
+    ]
+  };
 
   return (
     <SNarOCRLayout currentPage="results">
@@ -19,479 +156,313 @@ export default function SNarOCRResults() {
         <div className="space-y-6">
           <div className="mb-2">
             <h2 className="text-xl font-semibold">채점 결과</h2>
-            <p className="text-sm text-neutral-600">총점과 문항별 정오표를 확인하세요</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {/* 채점 날짜 선택 */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">채점 날짜</label>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsDateDropdownOpen(!isDateDropdownOpen);
+                      setIsExamDropdownOpen(false);
+                    }}
+                    className="w-full rounded-xl border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-neutral-50"
+                  >
+                    <span>{selectedDate}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isDateDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+              
+                  {isDateDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
+                      {['2025년 9월 15일', '2025년 9월 14일', '2025년 9월 13일', '2025년 9월 12일', '2025년 9월 11일'].map((date) => (
+                <button 
+                          key={date}
+                          onClick={() => {
+                            setSelectedDate(date);
+                            setIsDateDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-neutral-50 border-b last:border-b-0"
+                        >
+                          {date}
+                </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 시험지 선택 */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">시험지</label>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsExamDropdownOpen(!isExamDropdownOpen);
+                      setIsDateDropdownOpen(false);
+                    }}
+                    className="w-full rounded-xl border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-neutral-50"
+                  >
+                    <span>{selectedExam}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isExamDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {isExamDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
+                      {['2025학년도 9월 모의고사', '2025학년도 6월 모의고사', '2025학년도 3월 학력평가', '2024학년도 11월 모의고사', '2024학년도 9월 모의고사'].map((exam) => (
+                        <button
+                          key={exam}
+                          onClick={() => {
+                            setSelectedExam(exam);
+                            setIsExamDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-neutral-50 border-b last:border-b-0"
+                        >
+                          {exam}
+                  </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 채점 학생 수 */}
+            <div className="mt-3">
+              <div className="rounded-xl border bg-blue-50 p-3 flex items-center gap-2">
+                <div className="text-sm font-medium text-blue-700">
+                  총 {gradedCount}명 채점 완료
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* 최근 채점한 시험지 목록 */}
+
+          {/* 개별 결과 파일 */}
           <div className="rounded-2xl border bg-white">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">최근 채점한 시험지</h3>
-              <p className="text-sm text-neutral-600 mt-1">이전에 채점한 시험지를 다시 확인하세요</p>
-            </div>
-            <div className="p-6">
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {/* 최근 시험지 목록 (3개만) */}
-                {[
-                  {
-                    title: '2025학년도 9월 모의고사 - 국어',
-                    date: '2025-09-15',
-                    score: 90,
-                    total: 100,
-                    subject: '국어',
-                    questions: 45
-                  },
-                  {
-                    title: '2025학년도 9월 모의고사 - 수학',
-                    date: '2025-09-15',
-                    score: 75,
-                    total: 100,
-                    subject: '수학',
-                    questions: 30
-                  },
-                  {
-                    title: '2025학년도 6월 모의고사 - 영어',
-                    date: '2025-06-15',
-                    score: 88,
-                    total: 100,
-                    subject: '영어',
-                    questions: 45
-                  }
-                ].map((exam, index) => (
-                  <button
-                    key={index}
-                    className="p-4 rounded-xl border hover:bg-neutral-50 text-left transition-colors"
-                    onClick={() => {
-                      // 시험지 상세 보기 로직
-                      console.log('시험지 선택:', exam.title);
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm text-neutral-900 mb-1 line-clamp-2">
-                          {exam.title}
-                        </div>
-                        <div className="text-xs text-neutral-500">
-                          {exam.date} • {exam.questions}문항
-                        </div>
-                      </div>
-                      <div className="ml-2 text-right">
-                        <div className={`text-lg font-bold ${
-                          exam.score >= 90 ? 'text-green-600' : 
-                          exam.score >= 80 ? 'text-blue-600' : 
-                          exam.score >= 70 ? 'text-orange-600' : 'text-red-600'
-                        }`}>
-                          {exam.score}점
-                        </div>
-                        <div className="text-xs text-neutral-500">
-                          {exam.score}/{exam.total}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        exam.subject === '국어' ? 'bg-blue-100 text-blue-800' :
-                        exam.subject === '수학' ? 'bg-green-100 text-green-800' :
-                        exam.subject === '영어' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {exam.subject}
-                      </span>
-                      <div className="flex-1 bg-neutral-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            exam.score >= 90 ? 'bg-green-500' : 
-                            exam.score >= 80 ? 'bg-blue-500' : 
-                            exam.score >= 70 ? 'bg-orange-500' : 'bg-red-500'
+              <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">개별 결과 (CSV)</h3>
+              <p className="text-sm text-neutral-600 mt-1">과목을 선택하여 채점 결과를 다운로드하세요</p>
+              </div>
+              <div className="p-6">
+              {/* 과목 선택 */}
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-2 block">과목 선택</label>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {mainSubjects.map((subject) => (
+                    <button
+                      key={subject.id}
+                      onClick={() => {
+                        setMainSubject(subject.id);
+                        setSubSubject('');
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        mainSubject === subject.id
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {subject.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 하위 과목 선택 (사탐, 과탐일 때만 표시) */}
+                {(mainSubject === '사회탐구' || mainSubject === '과학탐구') && (
+                  <div className="mt-3">
+                    <div className="text-xs text-gray-600 mb-2">개별 과목 선택:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {subSubjects[mainSubject as keyof typeof subSubjects]?.map((subSubjectItem) => (
+                        <button
+                          key={subSubjectItem.id}
+                          onClick={() => setSubSubject(subSubjectItem.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            subSubject === subSubjectItem.id
+                              ? 'bg-gray-700 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                           }`}
-                          style={{ width: `${exam.score}%` }}
-                        ></div>
-                      </div>
+                        >
+                          {subSubjectItem.name}
+                        </button>
+                      ))}
                     </div>
-                  </button>
-                ))}
+                  </div>
+                )}
+              </div>
+
+              {/* CSV 파일 미리보기 */}
+              <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-4 mb-4">
+                <div className="text-sm font-medium mb-2">파일 형식</div>
+                <div className="text-xs font-mono bg-white p-3 rounded border border-gray-300 overflow-x-auto">
+                  <div className="whitespace-pre text-gray-700">
+{`수험번호,이름,소속반,과목코드,총점,만점,총문제수,정답수,오답번호
+20231001,홍길동,1반,KOR,85,100,45,42,3,7,9
+20231002,김철수,1반,KOR,92,100,45,46,7
+20231003,이영희,2반,KOR,78,100,45,39,1,3,5,9
+20231004,박민수,2반,KOR,95,100,45,47,2`}
+                  </div>
+                </div>
               </div>
               
-              {/* 더 보기 버튼 */}
-              <div className="mt-4 text-center">
-                <button 
-                  className="px-4 py-2 rounded-xl border hover:bg-neutral-50 text-sm font-medium"
-                  onClick={() => setIsMoreExamsModalOpen(true)}
-                >
-                  더 많은 시험지 보기
+              {/* 다운로드 버튼 */}
+              <div className="flex gap-3">
+                <button className="px-4 py-2 rounded-xl border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium text-sm flex items-center gap-1">
+                  <Download size={14} />
+                  CSV 다운로드
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-4">
-            {/* 요약 섹션 */}
-            <div className="lg:col-span-1 rounded-2xl border bg-white">
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold">요약</h3>
-              </div>
-              <div className="p-6 space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-blue-50 p-4 border-2 border-blue-200">
-                    <div className="text-3xl font-bold text-blue-600">{totalScore}</div>
-                    <div className="text-sm text-blue-700 font-medium">총점</div>
-                  </div>
-                  <div className="rounded-xl bg-red-50 p-4 border-2 border-red-200">
-                    <div className="text-3xl font-bold text-red-600">{wrongCount}</div>
-                    <div className="text-sm text-red-700 font-medium">오답</div>
-                  </div>
-                </div>
-                <div className="rounded-xl border-2 border-gray-200 p-4 bg-gray-50">
-                  <div className="text-sm text-gray-600 mb-2 font-medium">틀린 문항:</div>
-                  <div className="text-base font-bold text-red-600">
-                    {wrongQuestions.join(', ')}
-                  </div>
-                </div>
-                <div className="rounded-xl border p-3 text-xs text-neutral-600">
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span>문법</span>
-                      <span className="text-red-600">3문항</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>독해</span>
-                      <span className="text-red-600">2문항</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>미적분</span>
-                      <span className="text-red-600">4문항</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button className="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-medium text-sm flex items-center gap-1">
-                    <Download size={14} />
-                    PDF
-                  </button>
-                  <button className="px-4 py-2 rounded-xl border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium text-sm flex items-center gap-1">
-                    <Download size={14} />
-                    CSV
-                  </button>
-                </div>
-              </div>
+          {/* 반별 점수 분석 */}
+          <div className="rounded-2xl border bg-white">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">{getDisplaySubject()} 반별 점수 분석</h3>
+              <p className="text-sm text-neutral-600 mt-1">반별 채점 통계 및 점수 분포를 확인하세요</p>
             </div>
-
-            {/* 문항별 결과 */}
-            <div className="lg:col-span-3 rounded-2xl border bg-white">
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold">문항별 결과</h3>
-              </div>
-              <div className="p-6">
-                {/* 문항 그리드 */}
-                <div className="grid grid-cols-10 gap-2 mb-4">
-                  {Array.from({ length: 50 }, (_, i) => i + 1).map((num) => (
-                    <div
-                      key={num}
-                      className={`p-2 text-center text-sm font-semibold rounded-lg border ${
-                        wrongQuestions.includes(num)
-                          ? 'bg-red-50 border-red-300 text-red-600'
-                          : 'bg-green-50 border-green-300 text-green-600'
-                      }`}
-                    >
-                      {num}
-                    </div>
-                  ))}
+            <div className="p-6">
+              {/* 통계 카드 */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div className="rounded-xl bg-blue-50 p-4 border-2 border-blue-200">
+                  <div className="text-2xl font-bold text-blue-600">{statsData.gradedCount}</div>
+                  <div className="text-xs text-blue-700 font-medium">채점인원</div>
                 </div>
+                <div className="rounded-xl bg-green-50 p-4 border-2 border-green-200">
+                  <div className="text-2xl font-bold text-green-600">{statsData.average}</div>
+                  <div className="text-xs text-green-700 font-medium">평균</div>
+                </div>
+                <div className="rounded-xl bg-orange-50 p-4 border-2 border-orange-200">
+                  <div className="text-2xl font-bold text-orange-600">{statsData.standardDeviation.toFixed(1)}</div>
+                  <div className="text-xs text-orange-700 font-medium">표준편차</div>
+                </div>
+                <div className="rounded-xl bg-purple-50 p-4 border-2 border-purple-200">
+                  <div className="text-2xl font-bold text-purple-600">{statsData.highestScore}</div>
+                  <div className="text-xs text-purple-700 font-medium">최고점</div>
+                </div>
+                <div className="rounded-xl bg-red-50 p-4 border-2 border-red-200">
+                  <div className="text-2xl font-bold text-red-600">{statsData.lowestScore}</div>
+                  <div className="text-xs text-red-700 font-medium">최저점</div>
+                        </div>
+                        </div>
 
-                <div className="mt-4 rounded-2xl border p-4">
-                  <div className="mb-2 text-sm font-medium">오답 하이라이트 (미리보기)</div>
-                  <div className="grid h-40 place-items-center rounded-xl bg-neutral-100 text-xs text-neutral-500">
-                    스캔 이미지에서 오답 영역 박스 오버레이 (와이어프레임)
+              {/* 점수 분포 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-3">점수 분포</h4>
+                <div className="space-y-2">
+                  {statsData.scoreDistribution.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-16 text-xs font-medium">{item.range}</div>
+                      <div className="flex-1 bg-gray-100 rounded-full h-6 relative">
+                        <div
+                          className="h-6 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-end pr-2"
+                          style={{ width: `${item.percentage}%` }}
+                        >
+                          <span className="text-xs font-medium text-white">{item.count}명</span>
+                        </div>
+                      </div>
+                      <div className="w-16 text-xs text-gray-600 text-right">{item.percentage}%</div>
+                          </div>
+                        ))}
                   </div>
-                </div>
               </div>
             </div>
           </div>
 
-          {/* 오답노트 */}
+          {/* 오답률 분석 */}
           <div className="rounded-2xl border bg-white">
             <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">오답노트</h3>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-neutral-600">과목:</label>
-                  <select
-                    value={subjectFilter}
-                    onChange={(e) => setSubjectFilter(e.target.value)}
-                    className="px-3 py-1 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="all">전체</option>
-                    <option value="수학">수학</option>
-                    <option value="국어">국어</option>
-                    <option value="영어">영어</option>
-                    <option value="과학탐구">과학탐구</option>
-                    <option value="사회탐구">사회탐구</option>
-                    <option value="한국사">한국사</option>
-                  </select>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">{getDisplaySubject()} 오답률 분석</h3>
+                  <p className="text-sm text-neutral-600 mt-1">전체 학생과 상위권 학생의 오답률을 비교하세요</p>
                 </div>
+                <button
+                  onClick={downloadWrongAnswersCSV}
+                  className="px-4 py-2 rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-medium text-sm flex items-center gap-1 whitespace-nowrap"
+                >
+                  <FileDown size={14} />
+                  <span className="hidden sm:inline">문항별 오답률 CSV 다운로드</span>
+                  <span className="sm:hidden">오답률 CSV</span>
+                </button>
               </div>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                {/* 시험별 오답노트 항목 */}
-                {[
-                  {
-                    examTitle: '2025학년도 9월 모의고사 - 국어',
-                    date: '2025-09-15',
-                    subject: '국어',
-                    wrongCount: 5,
-                    totalQuestions: 45,
-                    wrongQuestions: [3, 7, 12, 15, 18],
-                    details: [
-                      { question: 3, type: '문법', detail: '음운 변동 규칙' },
-                      { question: 7, type: '독해', detail: '글의 구조 파악' },
-                      { question: 12, type: '문학', detail: '시의 표현 기법' },
-                      { question: 15, type: '문법', detail: '띄어쓰기 규칙' },
-                      { question: 18, type: '독해', detail: '논증 구조 분석' }
-                    ]
-                  },
-                  {
-                    examTitle: '2025학년도 9월 모의고사 - 수학',
-                    date: '2025-09-15',
-                    subject: '수학',
-                    wrongCount: 8,
-                    totalQuestions: 30,
-                    wrongQuestions: [2, 5, 9, 11, 14, 17, 22, 25],
-                    details: [
-                      { question: 2, type: '미적분', detail: '도함수의 활용' },
-                      { question: 5, type: '확률과 통계', detail: '조건부 확률' },
-                      { question: 9, type: '기하', detail: '벡터의 내적' },
-                      { question: 11, type: '미적분', detail: '정적분의 활용' },
-                      { question: 14, type: '수열', detail: '등차수열의 합' },
-                      { question: 17, type: '함수', detail: '삼각함수의 성질' },
-                      { question: 22, type: '미적분', detail: '부정적분' },
-                      { question: 25, type: '기하', detail: '원의 방정식' }
-                    ]
-                  },
-                  {
-                    examTitle: '2025학년도 6월 모의고사 - 영어',
-                    date: '2025-06-15',
-                    subject: '영어',
-                    wrongCount: 3,
-                    totalQuestions: 45,
-                    wrongQuestions: [8, 23, 35],
-                    details: [
-                      { question: 8, type: '문법', detail: '시제 일치' },
-                      { question: 23, type: '독해', detail: '추론 문제' },
-                      { question: 35, type: '어휘', detail: '동의어 파악' }
-                    ]
-                  }
-                ].map((exam, idx) => (
-                  <div key={idx} className="rounded-xl border p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            exam.subject === '수학' ? 'bg-blue-100 text-blue-800' :
-                            exam.subject === '국어' ? 'bg-green-100 text-green-800' :
-                            exam.subject === '영어' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {exam.subject}
-                          </span>
-                          <span className="font-semibold text-sm">{exam.examTitle}</span>
+              {/* 전체 오답률 상위 10개 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-3">전체 학생 오답률 상위 10개</h4>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">순위</th>
+                        <th className="px-4 py-2 text-left">문항</th>
+                        <th className="px-4 py-2 text-left">오답 수</th>
+                        <th className="px-4 py-2 text-left">오답률</th>
+                        <th className="px-4 py-2 text-left w-32">그래프</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {statsData.topWrongQuestions.map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="px-4 py-2 font-medium">{idx + 1}</td>
+                          <td className="px-4 py-2">{item.question}번</td>
+                          <td className="px-4 py-2">{item.wrongCount}명</td>
+                          <td className="px-4 py-2">{item.percentage}%</td>
+                          <td className="px-4 py-2">
+                            <div className="bg-gray-100 rounded-full h-4 relative">
+                              <div
+                                className="h-4 rounded-full bg-red-500"
+                                style={{ width: `${item.percentage}%` }}
+                              ></div>
                         </div>
-                        <div className="text-xs text-gray-500 mb-2">
-                          {exam.date} • {exam.wrongCount}개 오답 / {exam.totalQuestions}문항
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          틀린 문항: <span className="font-medium text-red-600">{exam.wrongQuestions.join(', ')}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                         </div>
                       </div>
-                      <button 
-                        className="px-3 py-1 text-xs rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50"
-                        onClick={() => {
-                          // 상세 보기 로직 - 틀린 문제 상세 정보 표시
-                          console.log('상세 보기:', exam.examTitle, exam.details);
-                        }}
-                      >
-                        상세보기
-                      </button>
-                    </div>
-                    
-                    {/* 틀린 문제 미리보기 (상세보기 클릭 시 확장) */}
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <div className="text-xs text-gray-500 mb-2">틀린 문제 미리보기:</div>
-                      <div className="space-y-1">
-                        {exam.details.slice(0, 3).map((detail, detailIdx) => (
-                          <div key={detailIdx} className="flex items-center gap-2 text-xs">
-                            <span className="font-medium text-red-600">{detail.question}번</span>
-                            <span className="text-gray-600">· {detail.type}</span>
-                            <span className="text-gray-500">· {detail.detail}</span>
-                          </div>
-                        ))}
-                        {exam.details.length > 3 && (
-                          <div className="text-xs text-gray-400">
-                            +{exam.details.length - 3}개 더...
-                          </div>
-                        )}
+
+              {/* 상위권 오답률 상위 5개 */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3">상위권(10% 이내) 오답률 상위 5개</h4>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">순위</th>
+                        <th className="px-4 py-2 text-left">문항</th>
+                        <th className="px-4 py-2 text-left">오답 수</th>
+                        <th className="px-4 py-2 text-left">오답률</th>
+                        <th className="px-4 py-2 text-left w-32">그래프</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {statsData.topStudentsWrongQuestions.map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="px-4 py-2 font-medium">{idx + 1}</td>
+                          <td className="px-4 py-2">{item.question}번</td>
+                          <td className="px-4 py-2">{item.wrongCount}명</td>
+                          <td className="px-4 py-2">{item.percentage}%</td>
+                          <td className="px-4 py-2">
+                            <div className="bg-gray-100 rounded-full h-4 relative">
+                              <div
+                                className="h-4 rounded-full bg-orange-500"
+                                style={{ width: `${item.percentage}%` }}
+                        ></div>
                       </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                     </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
+
         </div>
       </section>
 
-      {/* 더 많은 시험지 보기 모달 */}
-      {isMoreExamsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-          <div className="bg-white rounded-2xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">모든 채점한 시험지</h3>
-              <p className="text-sm text-neutral-600 mt-1">이전에 채점한 모든 시험지를 확인하세요</p>
-            </div>
-
-            <div className="p-6">
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {/* 모든 시험지 목록 */}
-                {[
-                  {
-                    title: '2025학년도 9월 모의고사 - 국어',
-                    date: '2025-09-15',
-                    score: 90,
-                    total: 100,
-                    subject: '국어',
-                    questions: 45
-                  },
-                  {
-                    title: '2025학년도 9월 모의고사 - 수학',
-                    date: '2025-09-15',
-                    score: 75,
-                    total: 100,
-                    subject: '수학',
-                    questions: 30
-                  },
-                  {
-                    title: '2025학년도 6월 모의고사 - 영어',
-                    date: '2025-06-15',
-                    score: 88,
-                    total: 100,
-                    subject: '영어',
-                    questions: 45
-                  },
-                  {
-                    title: '2025학년도 3월 학력평가 - 국어',
-                    date: '2025-03-15',
-                    score: 82,
-                    total: 100,
-                    subject: '국어',
-                    questions: 45
-                  },
-                  {
-                    title: '2024학년도 11월 모의고사 - 수학',
-                    date: '2024-11-15',
-                    score: 78,
-                    total: 100,
-                    subject: '수학',
-                    questions: 30
-                  },
-                  {
-                    title: '2024학년도 9월 모의고사 - 영어',
-                    date: '2024-09-15',
-                    score: 85,
-                    total: 100,
-                    subject: '영어',
-                    questions: 45
-                  },
-                  {
-                    title: '2024학년도 6월 모의고사 - 국어',
-                    date: '2024-06-15',
-                    score: 87,
-                    total: 100,
-                    subject: '국어',
-                    questions: 45
-                  },
-                  {
-                    title: '2024학년도 3월 학력평가 - 수학',
-                    date: '2024-03-15',
-                    score: 72,
-                    total: 100,
-                    subject: '수학',
-                    questions: 30
-                  },
-                  {
-                    title: '2023학년도 11월 모의고사 - 영어',
-                    date: '2023-11-15',
-                    score: 83,
-                    total: 100,
-                    subject: '영어',
-                    questions: 45
-                  }
-                ].map((exam, index) => (
-                  <button
-                    key={index}
-                    className="p-4 rounded-xl border hover:bg-neutral-50 text-left transition-colors"
-                    onClick={() => {
-                      // 시험지 상세 보기 로직
-                      console.log('시험지 선택:', exam.title);
-                      setIsMoreExamsModalOpen(false);
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm text-neutral-900 mb-1 line-clamp-2">
-                          {exam.title}
-                        </div>
-                        <div className="text-xs text-neutral-500">
-                          {exam.date} • {exam.questions}문항
-                        </div>
-                      </div>
-                      <div className="ml-2 text-right">
-                        <div className={`text-lg font-bold ${
-                          exam.score >= 90 ? 'text-green-600' : 
-                          exam.score >= 80 ? 'text-blue-600' : 
-                          exam.score >= 70 ? 'text-orange-600' : 'text-red-600'
-                        }`}>
-                          {exam.score}점
-                        </div>
-                        <div className="text-xs text-neutral-500">
-                          {exam.score}/{exam.total}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        exam.subject === '국어' ? 'bg-blue-100 text-blue-800' :
-                        exam.subject === '수학' ? 'bg-green-100 text-green-800' :
-                        exam.subject === '영어' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {exam.subject}
-                      </span>
-                      <div className="flex-1 bg-neutral-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            exam.score >= 90 ? 'bg-green-500' : 
-                            exam.score >= 80 ? 'bg-blue-500' : 
-                            exam.score >= 70 ? 'bg-orange-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${exam.score}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-6 border-t flex justify-end gap-2">
-              <button
-                onClick={() => setIsMoreExamsModalOpen(false)}
-                className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </SNarOCRLayout>
   );
 }

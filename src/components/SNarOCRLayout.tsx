@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSNarOCRNavigation } from '@/hooks/useSNarOCRNavigation';
-import { Home, Upload, BarChart3, CreditCard, HelpCircle, X } from 'lucide-react';
+import { Home, Upload, BarChart3, CreditCard, HelpCircle, X, User } from 'lucide-react';
 
 interface SNarOCRLayoutProps {
   children: React.ReactNode;
@@ -83,7 +83,16 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
               onClick={() => handleGoto('results')}
             >
               <BarChart3 size={16} />
-              채점 결과
+              학원별 채점결과 다운로드
+            </button>
+            <button
+              className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${
+                currentPage === 'individual-results' ? 'bg-black text-white' : 'hover:bg-neutral-100'
+              }`}
+              onClick={() => handleGoto('individual-results')}
+            >
+              <User size={16} />
+              개인별 채점 결과
             </button>
             <button
               className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${

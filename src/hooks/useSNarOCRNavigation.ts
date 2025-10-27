@@ -16,6 +16,9 @@ export const useSNarOCRNavigation = () => {
       case 'results':
         router.push('/results');
         break;
+      case 'individual-results':
+        router.push('/individual-results');
+        break;
       case 'pricing':
         router.push('/pricing');
         break;

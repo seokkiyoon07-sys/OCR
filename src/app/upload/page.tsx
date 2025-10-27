@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import SNarOCRLayout from '@/components/SNarOCRLayout';
-import { Upload, ChevronDown } from 'lucide-react';
+import { Upload, ChevronDown, Download } from 'lucide-react';
 import { useSNarOCRNavigation } from '@/hooks/useSNarOCRNavigation';
 import { validateInput, validateFile, sanitizeInput } from '@/lib/security';
 import { safeExecute, validateRequired, validateRange } from '@/lib/error-handling';
@@ -13,6 +13,17 @@ export default function SNarOCRUpload() {
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
   const [isFindAnswerModalOpen, setIsFindAnswerModalOpen] = useState(false);
   const [isGradingRangeModalOpen, setIsGradingRangeModalOpen] = useState(false);
+  const [isGradeInfoModalOpen, setIsGradeInfoModalOpen] = useState(false);
+  
+  // 과목별 만점 정보
+  const maxScoreBySubject = {
+    '한국사': 50,
+    '사회탐구': 50,
+    '과학탐구': 50,
+    '국어': 100,
+    '수학': 100,
+    '영어': 100
+  };
   const [selectedSubject, setSelectedSubject] = useState('과목을 선택하세요');
   const [uploadError, setUploadError] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
@@ -21,6 +32,12 @@ export default function SNarOCRUpload() {
   const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [customMultipleChoice, setCustomMultipleChoice] = useState('');
   const [customSubjective, setCustomSubjective] = useState('');
+  
+  // 탐구 선택 관련 상태
+  const [selectedSubjectCategory, setSelectedSubjectCategory] = useState('');
+  const [selectedScienceCategory, setSelectedScienceCategory] = useState('');
+  const [selectedSocialCategory, setSelectedSocialCategory] = useState('');
+  const [selectedHistoryCategory, setSelectedHistoryCategory] = useState('');
 
   // 시험 정보 입력 필드
   const [examYear, setExamYear] = useState('');
@@ -39,7 +56,53 @@ export default function SNarOCRUpload() {
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
   const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
 
+  // 블록 관리 상태
+  interface Block {
+    id: string;
+    type: string; // 타입 (text, checkbox, radio 등 자유 입력)
+    dataFormat: 'grid' | 'digits' | 'id' | 'phone' | 'name' | 'code'; // 데이터 형식
+    choices?: number; // 선택지(열)
+    rows?: number; // 행
+  }
+  
+  const [blocks, setBlocks] = useState<Block[]>([
+    { id: 'block1', type: 'text', dataFormat: 'name', rows: 1 }, // 이름
+    { id: 'block2', type: 'text', dataFormat: 'id', rows: 1 }, // 학번
+    { id: 'block3', type: 'text', dataFormat: 'code', rows: 1 }, // 과목번호
+  ]);
+
   const { navigateTo } = useSNarOCRNavigation();
+  
+  // 블록 추가
+  const handleAddBlock = () => {
+    const newBlockId = `block${blocks.length + 1}`;
+    setBlocks([...blocks, { id: newBlockId, type: 'checkbox', dataFormat: 'grid', choices: 5, rows: 1 }]);
+  };
+  
+  // 블록 삭제
+  const handleRemoveBlock = (blockId: string) => {
+    setBlocks(blocks.filter(block => block.id !== blockId));
+  };
+  
+  // 블록 복제
+  const handleDuplicateBlock = (blockId: string) => {
+    const blockToDuplicate = blocks.find(block => block.id === blockId);
+    if (blockToDuplicate) {
+      const newBlockId = `block${blocks.length + 1}`;
+      const duplicatedBlock = {
+        ...blockToDuplicate,
+        id: newBlockId
+      };
+      setBlocks([...blocks, duplicatedBlock]);
+    }
+  };
+  
+  // 블록 업데이트
+  const handleUpdateBlock = (blockId: string, field: keyof Block, value: any) => {
+    setBlocks(blocks.map(block => 
+      block.id === blockId ? { ...block, [field]: value } : block
+    ));
+  };
 
   // 파일 업로드 핸들러
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,23 +180,17 @@ export default function SNarOCRUpload() {
     }
   };
 
-  // 배점 입력 핸들러
+  // 배점 입력 핸들러 (정수만 허용)
   const handleScoreInput = (index: number, value: string, inputRef?: HTMLInputElement) => {
-    // 숫자만 허용 (소수점 포함)
-    const numericValue = value.replace(/[^0-9.]/g, '');
-    
-    // 소수점이 여러 개인 경우 처리
-    const parts = numericValue.split('.');
-    const sanitizedValue = parts.length > 2 
-      ? parts[0] + '.' + parts.slice(1).join('')
-      : numericValue;
+    // 정수만 허용 (소수점 제거)
+    const integerValue = value.replace(/[^0-9]/g, '');
 
     const newScores = [...scores];
-    newScores[index] = sanitizedValue;
+    newScores[index] = integerValue;
     setScores(newScores);
 
     // 입력이 완료되면 다음 입력 필드로 자동 이동
-    if (sanitizedValue && inputRef) {
+    if (integerValue && inputRef) {
       setTimeout(() => {
         const form = inputRef.form;
         if (form) {
@@ -152,10 +209,11 @@ export default function SNarOCRUpload() {
       // 정답 입력 완료 후 배점 입력 탭으로 이동
       setAnswerModalTab('scores');
     } else {
-      // 배점 입력 완료 후 저장
+      // 배점 입력 완료 후 성적표 정보 입력 모달 열기
       console.log('정답 및 배점 저장:', { answers, scores });
       setIsAnswerModalOpen(false);
       setAnswerModalTab('answers'); // 다음 사용을 위해 초기화
+      setIsGradeInfoModalOpen(true); // 성적표 정보 입력 모달 열기
     }
   };
 
@@ -216,7 +274,13 @@ export default function SNarOCRUpload() {
                           onClick={() => setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
                           className="w-full rounded-xl border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-neutral-50"
                         >
-                          <span>{selectedSubject}</span>
+                          <span>
+                            {selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory : 
+                             selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
+                             selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
+                             selectedSubject === '탐구' ? '탐구' :
+                             selectedSubject}
+                          </span>
                           <ChevronDown className={`w-4 h-4 transition-transform ${isSubjectDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
@@ -253,16 +317,104 @@ export default function SNarOCRUpload() {
                               <div className="font-medium text-sm">영어</div>
                               <div className="text-xs text-neutral-500 mt-0.5">45문항</div>
                             </button>
-                            <button
-                              onClick={() => {
-                                setSelectedSubject('탐구');
-                                setIsSubjectDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-neutral-50 border-b"
-                            >
-                              <div className="font-medium text-sm">탐구</div>
-                              <div className="text-xs text-neutral-500 mt-0.5">20문항 (과학탐구, 사회탐구, 한국사)</div>
-                            </button>
+                            <div className="border-b">
+                              <button
+                                onClick={() => {
+                                  setSelectedSubject('탐구');
+                                  setSelectedSubjectCategory(''); // 초기화
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-neutral-50"
+                              >
+                                <div className="font-medium text-sm">탐구</div>
+                                <div className="text-xs text-neutral-500 mt-0.5">20문항</div>
+                              </button>
+                              
+                              {/* 탐구 선택 시 카테고리 선택 */}
+                              {selectedSubject === '탐구' && (
+                                <div className="pl-4 pb-2 space-y-2">
+                                  <div className="relative">
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm rounded border bg-white hover:bg-neutral-50"
+                                      onClick={() => {
+                                        setSelectedSubjectCategory(selectedSubjectCategory === 'social' ? '' : 'social');
+                                        if (selectedSubjectCategory !== 'social') {
+                                          setSelectedScienceCategory('');
+                                          setSelectedHistoryCategory('');
+                                        }
+                                      }}
+                                    >
+                                      {selectedSubjectCategory === 'social' ? '✓ ' : ''}사회탐구
+                                    </button>
+                                    
+                                      {selectedSubjectCategory === 'social' && (
+                                      <div className="mt-2 space-y-1 pl-2">
+                                        {['생활과 윤리', '윤리와 사상', '한국지리', '세계지리', '동아시아사', '세계사', '경제', '정치와 법', '사회·문화'].map((subject) => (
+                                          <button
+                                            key={subject}
+                                            className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-blue-50 border"
+                                            onClick={() => {
+                                              setSelectedSocialCategory(subject);
+                                              setIsSubjectDropdownOpen(false);
+                                            }}
+                                          >
+                                            {selectedSocialCategory === subject ? '✓ ' : ''}{subject}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="relative">
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm rounded border bg-white hover:bg-neutral-50"
+                                      onClick={() => {
+                                        setSelectedSubjectCategory(selectedSubjectCategory === 'science' ? '' : 'science');
+                                        if (selectedSubjectCategory !== 'science') {
+                                          setSelectedSocialCategory('');
+                                          setSelectedHistoryCategory('');
+                                        }
+                                      }}
+                                    >
+                                      {selectedSubjectCategory === 'science' ? '✓ ' : ''}과학탐구
+                                    </button>
+                                    
+                                    {selectedSubjectCategory === 'science' && (
+                                      <div className="mt-2 space-y-1 pl-2">
+                                        {['물리학I', '화학I', '생명과학I', '지구과학I', '물리학II', '화학II', '생명과학II', '지구과학II'].map((subject) => (
+                                          <button
+                                            key={subject}
+                                            className="w-full text-left px-3 py-1.5 text-xs rounded hover:bg-blue-50 border"
+                                            onClick={() => {
+                                              setSelectedScienceCategory(subject);
+                                              setIsSubjectDropdownOpen(false);
+                                            }}
+                                          >
+                                            {selectedScienceCategory === subject ? '✓ ' : ''}{subject}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="relative">
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm rounded border bg-white hover:bg-neutral-50"
+                                      onClick={() => {
+                                        setSelectedSubjectCategory(selectedSubjectCategory === 'history' ? '' : 'history');
+                                        if (selectedSubjectCategory !== 'history') {
+                                          setSelectedSocialCategory('');
+                                          setSelectedScienceCategory('');
+                                        }
+                                        setSelectedHistoryCategory('한국사');
+                                        setIsSubjectDropdownOpen(false);
+                                      }}
+                                    >
+                                      {selectedSubjectCategory === 'history' ? '✓ ' : ''}한국사
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={() => {
                                 setSelectedSubject('기타');
@@ -391,7 +543,7 @@ export default function SNarOCRUpload() {
                 </div>
 
                 <div className="flex justify-end gap-2">
-                  <button className="px-4 py-2 rounded-xl border hover:bg-neutral-50">샘플 파일 사용</button>
+                  <button className="px-4 py-2 rounded-xl border hover:bg-neutral-50">정답, 배점 csv 파일 업로드</button>
                   <button 
                     onClick={() => setIsGradingRangeModalOpen(true)}
                     className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
@@ -842,7 +994,7 @@ export default function SNarOCRUpload() {
                 <div className="space-y-4">
                   <div className="text-center py-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-green-700 font-medium">2단계: 배점을 입력해주세요</p>
-                    <p className="text-xs text-green-600 mt-1">각 문항별 배점을 입력하세요 (예: 2.0, 3.5)</p>
+                    <p className="text-xs text-green-600 mt-1">정수만 입력 가능하며, 5개 단위로 연속 입력하세요 (예: 22322)</p>
                   </div>
                   
                   {selectedSubject === '수학' ? (
@@ -861,9 +1013,13 @@ export default function SNarOCRUpload() {
                                 type="text"
                                 value={scores[groupIndex] || ''}
                                 onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
-                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="예: 2.0"
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                placeholder="예: 22322"
+                                maxLength={5}
                               />
+                              <div className="text-xs text-gray-500 mt-1">
+                                5개 문항의 배점을 연속으로 입력하세요 (예: 22322)
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -898,9 +1054,13 @@ export default function SNarOCRUpload() {
                               type="text"
                               value={scores[10] || ''}
                               onChange={(e) => handleScoreInput(10, e.target.value, e.target)}
-                              className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                              placeholder="예: 2.0"
+                              className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                              placeholder="예: 223322"
+                              maxLength={6}
                             />
+                            <div className="text-xs text-gray-500 mt-1">
+                              6개 문항의 배점을 연속으로 입력하세요 (예: 223322)
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -934,6 +1094,7 @@ export default function SNarOCRUpload() {
                           {Array.from({ length: Math.ceil(parseInt(customMultipleChoice) / 5) }, (_, groupIndex) => {
                             const startNum = groupIndex * 5 + 1;
                             const endNum = Math.min(startNum + 4, parseInt(customMultipleChoice));
+                            const questionCount = endNum - startNum + 1;
 
                             return (
                               <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
@@ -945,9 +1106,13 @@ export default function SNarOCRUpload() {
                                     type="text"
                                     value={scores[groupIndex] || ''}
                                     onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
-                                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    placeholder="예: 2.0"
+                                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                    placeholder={`예: ${'22322'.substring(0, questionCount)}`}
+                                    maxLength={questionCount}
                                   />
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {questionCount}개 문항의 배점을 연속으로 입력하세요
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -990,6 +1155,7 @@ export default function SNarOCRUpload() {
                       {Array.from({ length: Math.ceil(getQuestionCount() / 5) }, (_, groupIndex) => {
                         const startNum = groupIndex * 5 + 1;
                         const endNum = Math.min(startNum + 4, getQuestionCount());
+                        const questionCount = endNum - startNum + 1;
 
                         return (
                           <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
@@ -1001,9 +1167,13 @@ export default function SNarOCRUpload() {
                                 type="text"
                                 value={scores[groupIndex] || ''}
                                 onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
-                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="예: 2.0"
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                placeholder={`예: ${'22322'.substring(0, questionCount)}`}
+                                maxLength={questionCount}
                               />
+                              <div className="text-xs text-gray-500 mt-1">
+                                {questionCount}개 문항의 배점을 연속으로 입력하세요
+                              </div>
                             </div>
                           </div>
                         );
@@ -1194,10 +1364,10 @@ export default function SNarOCRUpload() {
                 </div>
               </div>
 
-              {/* 오른쪽: 페이지 네비게이션 및 채점 구간 선택 */}
-              <div className="w-80 p-6 border-l">
+              {/* 오른쪽: 페이지 네비게이션 및 블록 목록 */}
+              <div className="w-96 p-6 border-l">
                 <div className="space-y-4">
-                  {/* 페이지 네비게이션 - 맨 위로 이동 */}
+                  {/* 페이지 네비게이션 */}
                   <div>
                     <h4 className="font-medium text-sm mb-2">페이지 네비게이션</h4>
                     <div className="flex items-center gap-2">
@@ -1218,77 +1388,127 @@ export default function SNarOCRUpload() {
                     </div>
                   </div>
 
-                  {/* 채점 구간 선택 */}
+                  {/* 템플릿 선택 */}
                   <div>
-                    <h4 className="font-medium text-sm mb-2">채점 구간 선택</h4>
-                    <div className="space-y-3">
-                      {/* 이름, 학번, 과목번호 */}
-                      <div>
-                        <div className="text-xs text-gray-600 mb-2">기본 정보 (2개까지 선택)</div>
-                        <div className="space-y-1">
-                          <label className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2">
-                              <input type="checkbox" className="rounded" />
-                              <span>이름</span>
-                            </span>
-                            <span className="text-xs text-gray-500">1/2</span>
-                          </label>
-                          <label className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2">
-                              <input type="checkbox" className="rounded" />
-                              <span>학번</span>
-                            </span>
-                            <span className="text-xs text-gray-500">2/2</span>
-                          </label>
-                          <label className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2">
-                              <input type="checkbox" className="rounded" />
-                              <span>과목번호</span>
-                            </span>
-                            <span className="text-xs text-gray-500">0/2</span>
-                          </label>
-                        </div>
+                    <h4 className="font-medium text-sm mb-2">템플릿 선택</h4>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <button className="w-full rounded-lg border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-gray-50">
+                          <span>템플릿을 선택하세요</span>
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
                       </div>
+                      <div className="text-xs text-gray-500">
+                        미리 정의된 템플릿을 사용하여 빠르게 설정할 수 있습니다
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* 객관식 영역 */}
-                      <div>
-                        <div className="text-xs text-gray-600 mb-2">객관식 영역</div>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">객관식 블록</span>
+                  {/* 블록 목록 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-sm">블록 목록</h4>
+                      <button 
+                        onClick={handleAddBlock}
+                        className="px-3 py-1 text-sm rounded-lg border bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        블록 추가
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {blocks.map((block, index) => (
+                        <div key={block.id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <button className="w-6 h-6 rounded border flex items-center justify-center hover:bg-gray-200">
-                                -
+                              <span className="text-sm font-medium">{block.id}</span>
+                              {index < 3 && (
+                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                  기본 정보
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleDuplicateBlock(block.id)}
+                                className="text-blue-600 hover:text-blue-800 text-sm"
+                                title="복제"
+                              >
+                                복제
                               </button>
-                              <span className="w-8 text-center text-sm font-medium">1</span>
-                              <button className="w-6 h-6 rounded border flex items-center justify-center hover:bg-gray-200">
-                                +
+                              <button 
+                                onClick={() => handleRemoveBlock(block.id)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                                title="삭제"
+                              >
+                                삭제
                               </button>
                             </div>
                           </div>
-                          <div className="text-xs text-gray-500">(최대 10개)</div>
-                        </div>
-                      </div>
-
-                      {/* 주관식 영역 */}
-                      <div>
-                        <div className="text-xs text-gray-600 mb-2">주관식 영역</div>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">주관식 블록</span>
-                            <div className="flex items-center gap-2">
-                              <button className="w-6 h-6 rounded border flex items-center justify-center hover:bg-gray-200">
-                                -
-                              </button>
-                              <span className="w-8 text-center text-sm font-medium">1</span>
-                              <button className="w-6 h-6 rounded border flex items-center justify-center hover:bg-gray-200">
-                                +
-                              </button>
+                          
+                          <div className="space-y-2">
+                            {/* 타입 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">타입</label>
+                              <input
+                                type="text"
+                                value={block.type}
+                                onChange={(e) => handleUpdateBlock(block.id, 'type', e.target.value)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: text, checkbox, radio"
+                              />
+                            </div>
+                            
+                            {/* 데이터 형식 토글 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">데이터 형식</label>
+                              <div className="flex flex-wrap gap-1">
+                                {['grid', 'digits', 'id', 'phone', 'name', 'code'].map((format) => (
+                                  <button
+                                    key={format}
+                                    onClick={() => handleUpdateBlock(block.id, 'dataFormat', format as Block['dataFormat'])}
+                                    className={`px-2 py-1 text-xs rounded border ${
+                                      block.dataFormat === format 
+                                        ? 'bg-blue-600 text-white border-blue-600' 
+                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    {format}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* 선택지(열) 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">선택지(열)</label>
+                              <input
+                                type="number"
+                                value={block.choices || ''}
+                                onChange={(e) => handleUpdateBlock(block.id, 'choices', parseInt(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: 5"
+                                min="1"
+                                max="20"
+                              />
+                            </div>
+                            
+                            {/* 행 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">행</label>
+                              <input
+                                type="number"
+                                value={block.rows || ''}
+                                onChange={(e) => handleUpdateBlock(block.id, 'rows', parseInt(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: 1"
+                                min="1"
+                                max="50"
+                              />
                             </div>
                           </div>
-                          <div className="text-xs text-gray-500">(최대 20개)</div>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1299,7 +1519,7 @@ export default function SNarOCRUpload() {
             <div className="p-6 border-t bg-gray-50">
               <div className="flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  선택된 구간: 기본정보 2개, 객관식 블록 1개, 주관식 블록 1개
+                  총 {blocks.length}개 블록 선택됨
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -1317,6 +1537,260 @@ export default function SNarOCRUpload() {
                     className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
                   >
                     채점 시작
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 성적표 정보 입력 모달 */}
+      {isGradeInfoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+          <div className="bg-white rounded-2xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">성적표 정보 입력</h3>
+              <p className="text-sm text-neutral-600 mt-1">원점수별 표준점수, 백분위, 등급, 응시자수를 입력하세요</p>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                {/* CSV 업로드 */}
+                <div className="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                  <label className="text-sm font-medium mb-2 block">CSV 파일로 업로드</label>
+                  <p className="text-xs text-gray-600 mb-3">표준점수, 백분위, 등급 정보가 포함된 CSV 파일을 업로드하세요</p>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="w-full text-sm text-gray-600"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const csvText = event.target?.result as string;
+                        const lines = csvText.split('\n');
+                        
+                        if (lines.length < 2) {
+                          alert('CSV 파일 형식이 올바르지 않습니다.');
+                          return;
+                        }
+                        
+                        const headers = lines[0].split(',');
+                        const newGradeInfo = [];
+                        
+                        for (let i = 1; i < lines.length; i++) {
+                          if (!lines[i].trim()) continue;
+                          const values = lines[i].split(',');
+                          const rawScore = parseInt(values[0].trim());
+                          
+                          if (!isNaN(rawScore)) {
+                            newGradeInfo.push({
+                              score: rawScore,
+                              standardScore: values[1]?.trim() || '',
+                              percentile: values[2]?.trim() || '',
+                              grade: values[3]?.trim() || '',
+                              testTakers: values[4]?.trim() || ''
+                            });
+                          }
+                        }
+                        
+                        setGradeInfo(newGradeInfo);
+                        alert('CSV 파일이 업로드되었습니다.');
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">CSV 형식: 원점수,표준점수,백분위,등급,응시자수</p>
+                </div>
+
+                {/* 응시자수 입력 (단 한 번만) */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">전체 응시자수</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="예: 1000"
+                    onChange={(e) => {
+                      const newGradeInfo = [...gradeInfo];
+                      newGradeInfo[0] = { ...newGradeInfo[0], testTakers: e.target.value };
+                      setGradeInfo(newGradeInfo);
+                    }}
+                  />
+                </div>
+
+                {/* 성적표 정보 입력 테이블 */}
+                <div className="overflow-x-auto">
+                  <table className="w-full border border-gray-300 text-sm table-fixed">
+                    <thead className="bg-gray-200">
+                      <tr>
+                        <th className="border border-gray-300 p-2 text-center w-24">원점수</th>
+                        <th className="border border-gray-300 p-2 text-center w-32">표준점수</th>
+                        <th className="border border-gray-300 p-2 text-center w-32">백분위 (1-100)</th>
+                        <th className="border border-gray-300 p-2 text-center w-32">등급 (1-9)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        // 생활과 윤리, 사회문화 등 모든 사회탐구는 50점 만점
+                        const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
+                        const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
+                        const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
+                        const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
+                        return Array.from({ length: maxScore + 1 }, (_, i) => i).reverse().map((score) => (
+                        <tr key={score}>
+                          <td className="border border-gray-300 p-2 text-center bg-gray-100 font-bold">
+                            {score}
+                          </td>
+                          <td className="border border-gray-300 p-2">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="w-full border-none focus:ring-0 text-center text-sm"
+                              onChange={(e) => {
+                                const newGradeInfo = [...gradeInfo];
+                                const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                if (existingIndex >= 0) {
+                                  newGradeInfo[existingIndex].standardScore = e.target.value;
+                                } else {
+                                  newGradeInfo.push({
+                                    score,
+                                    standardScore: e.target.value,
+                                    percentile: '',
+                                    grade: '',
+                                    testTakers: ''
+                                  });
+                                }
+                                setGradeInfo(newGradeInfo);
+                              }}
+                            />
+                          </td>
+                          <td className="border border-gray-300 p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              className="w-full border-none focus:ring-0 text-center text-sm"
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                if (value >= 1 && value <= 100) {
+                                  const newGradeInfo = [...gradeInfo];
+                                  const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                  if (existingIndex >= 0) {
+                                    newGradeInfo[existingIndex].percentile = e.target.value;
+                                  } else {
+                                    newGradeInfo.push({
+                                      score,
+                                      standardScore: '',
+                                      percentile: e.target.value,
+                                      grade: '',
+                                      testTakers: ''
+                                    });
+                                  }
+                                  setGradeInfo(newGradeInfo);
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="border border-gray-300 p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="9"
+                              className="w-full border-none focus:ring-0 text-center text-sm"
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                if (value >= 1 && value <= 9) {
+                                  const newGradeInfo = [...gradeInfo];
+                                  const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                  if (existingIndex >= 0) {
+                                    newGradeInfo[existingIndex].grade = e.target.value;
+                                  } else {
+                                    newGradeInfo.push({
+                                      score,
+                                      standardScore: '',
+                                      percentile: '',
+                                      grade: e.target.value,
+                                      testTakers: ''
+                                    });
+                                  }
+                                  setGradeInfo(newGradeInfo);
+                                }
+                              }}
+                            />
+                          </td>
+                        </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* 하단: 저장 버튼 */}
+            <div className="p-6 border-t bg-gray-50">
+              <div className="flex justify-between items-center">
+                <button 
+                  onClick={() => {
+                    const csvData = [];
+                    csvData.push('원점수,표준점수,백분위,등급,응시자수');
+                    
+                    // 50점 또는 100점 만점에 따라 데이터 생성
+                    const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
+                    const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
+                    const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
+                    const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
+                    
+                    for (let i = maxScore; i >= 0; i--) {
+                      const item = gradeInfo.find(g => g.score === i);
+                      const standardScore = item?.standardScore || '';
+                      const percentile = item?.percentile || '';
+                      const grade = item?.grade || '';
+                      const testTakers = item?.testTakers || (gradeInfo[0]?.testTakers || '');
+                      csvData.push(`${i},${standardScore},${percentile},${grade},${testTakers}`);
+                    }
+                    
+                    const csvContent = csvData.join('\n');
+                    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    
+                    const subjectName = selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory :
+                                       selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
+                                       selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
+                                       selectedSubject;
+                    link.setAttribute('download', `성적표정보_${subjectName}_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                >
+                  <Download size={14} />
+                  CSV로 다운로드
+                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setIsGradeInfoModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
+                  >
+                    취소
+                  </button>
+                  <button 
+                    onClick={() => {
+                      console.log('성적표 정보 저장:', gradeInfo);
+                      setIsGradeInfoModalOpen(false);
+                      setIsGradingRangeModalOpen(true); // 채점 구간 설정 모달로 이동
+                    }}
+                    className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
+                  >
+                    저장 및 다음
                   </button>
                 </div>
               </div>
