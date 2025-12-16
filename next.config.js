@@ -14,7 +14,7 @@ const nextConfig = {
 
     return [
       {
-        source: '/api/:path*',
+        source: '/api/:path((?!templates).*)',
         destination: `${target.replace(/\/$/, '')}/api/:path*`,
       },
     ];

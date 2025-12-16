@@ -11,7 +11,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ open, onClose }: AuthModalProps) {
-  const { login, isLoading, error } = useAuth();
+  const { login, bypassAuth, isLoading, error } = useAuth();
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -94,6 +94,18 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               회원가입
             </span>
           </p>
+          <div className="pt-2 border-t mt-4">
+            <button
+              className="w-full px-4 py-2 rounded-xl bg-neutral-200 text-neutral-800 hover:bg-neutral-300 text-sm font-medium"
+              type="button"
+              onClick={() => {
+                bypassAuth();
+                onClose();
+              }}
+            >
+              개발자 로그인 (Bypass)
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SNarOCRLayout from '@/components/SNarOCRLayout';
-import { Upload, ChevronDown, Download } from 'lucide-react';
+import { Upload, ChevronDown, Download, Menu } from 'lucide-react';
 import { validateFile } from '@/lib/security';
 import LayoutCanvas from '@/components/upload/LayoutCanvas';
 import BlockSidebar from '@/components/upload/BlockSidebar';
@@ -74,6 +74,7 @@ export default function SNarOCRUpload() {
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
   const [isFindAnswerModalOpen, setIsFindAnswerModalOpen] = useState(false);
   const [isGradingRangeModalOpen, setIsGradingRangeModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGradeInfoModalOpen, setIsGradeInfoModalOpen] = useState(false);
   const [gradeInfo, setGradeInfo] = useState<Array<{
     score: number;
@@ -82,7 +83,7 @@ export default function SNarOCRUpload() {
     grade: string;
     testTakers: string;
   }>>([]);
-  
+
   // 과목별 만점 정보
   const maxScoreBySubject = {
     '한국사': 50,
@@ -99,7 +100,7 @@ export default function SNarOCRUpload() {
   const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [customMultipleChoice, setCustomMultipleChoice] = useState('');
   const [customSubjective, setCustomSubjective] = useState('');
-  
+
   // 탐구 선택 관련 상태
   const [selectedSubjectCategory, setSelectedSubjectCategory] = useState('');
   const [selectedScienceCategory, setSelectedScienceCategory] = useState('');
@@ -223,11 +224,18 @@ export default function SNarOCRUpload() {
     setUploadError('');
 
     try {
+      // Create local preview for images immediately
+      let localPreview: string | null = null;
+      if (file.type.startsWith('image/')) {
+        localPreview = URL.createObjectURL(file);
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('template_path', templateName || '');
       formData.append('user_id', currentUserId);
 
+      // Call mock API
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -239,8 +247,12 @@ export default function SNarOCRUpload() {
 
       const data = (await response.json()) as UploadResponse;
       setSessionId(data.session_id);
-      setPreviewUrl(data.preview_url);
-      setFileName(data.filename);
+
+      // Use local preview if available (better UX for images), 
+      // otherwise use API provided preview (which handles PDF placeholder for mock)
+      setPreviewUrl(localPreview || data.preview_url);
+      setFileName(data.filename || file.name);
+
       resetForNewUpload();
     } catch (error) {
       const message =
@@ -482,11 +494,11 @@ export default function SNarOCRUpload() {
                           className="w-full rounded-xl border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-neutral-50"
                         >
                           <span>
-                            {selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory : 
-                             selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
-                             selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
-                             selectedSubject === '탐구' ? '탐구' :
-                             selectedSubject}
+                            {selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory :
+                              selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
+                                selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
+                                  selectedSubject === '탐구' ? '탐구' :
+                                    selectedSubject}
                           </span>
                           <ChevronDown className={`w-4 h-4 transition-transform ${isSubjectDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -535,7 +547,7 @@ export default function SNarOCRUpload() {
                                 <div className="font-medium text-sm">탐구</div>
                                 <div className="text-xs text-neutral-500 mt-0.5">20문항</div>
                               </button>
-                              
+
                               {/* 탐구 선택 시 카테고리 선택 */}
                               {selectedSubject === '탐구' && (
                                 <div className="pl-4 pb-2 space-y-2">
@@ -552,8 +564,8 @@ export default function SNarOCRUpload() {
                                     >
                                       {selectedSubjectCategory === 'social' ? '✓ ' : ''}사회탐구
                                     </button>
-                                    
-                                      {selectedSubjectCategory === 'social' && (
+
+                                    {selectedSubjectCategory === 'social' && (
                                       <div className="mt-2 space-y-1 pl-2">
                                         {['생활과 윤리', '윤리와 사상', '한국지리', '세계지리', '동아시아사', '세계사', '경제', '정치와 법', '사회·문화'].map((subject) => (
                                           <button
@@ -570,7 +582,7 @@ export default function SNarOCRUpload() {
                                       </div>
                                     )}
                                   </div>
-                                  
+
                                   <div className="relative">
                                     <button
                                       className="w-full text-left px-3 py-2 text-sm rounded border bg-white hover:bg-neutral-50"
@@ -584,7 +596,7 @@ export default function SNarOCRUpload() {
                                     >
                                       {selectedSubjectCategory === 'science' ? '✓ ' : ''}과학탐구
                                     </button>
-                                    
+
                                     {selectedSubjectCategory === 'science' && (
                                       <div className="mt-2 space-y-1 pl-2">
                                         {['물리학I', '화학I', '생명과학I', '지구과학I', '물리학II', '화학II', '생명과학II', '지구과학II'].map((subject) => (
@@ -602,7 +614,7 @@ export default function SNarOCRUpload() {
                                       </div>
                                     )}
                                   </div>
-                                  
+
                                   <div className="relative">
                                     <button
                                       className="w-full text-left px-3 py-2 text-sm rounded border bg-white hover:bg-neutral-50"
@@ -727,7 +739,7 @@ export default function SNarOCRUpload() {
                         >
                           정답 입력
                         </button>
-                        <button 
+                        <button
                           onClick={() => setIsFindAnswerModalOpen(true)}
                           className="px-3 py-2 rounded-xl border text-sm hover:bg-neutral-50"
                         >
@@ -748,7 +760,7 @@ export default function SNarOCRUpload() {
 
                 <div className="flex justify-end gap-2">
                   <button className="px-4 py-2 rounded-xl border hover:bg-neutral-50">정답, 배점 csv 파일 업로드</button>
-                  <button 
+                  <button
                     onClick={() => setIsGradingRangeModalOpen(true)}
                     className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
                   >
@@ -798,16 +810,16 @@ export default function SNarOCRUpload() {
 
                     {isYearDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
-                        {['2025', '2024', '2023', '2022', '2021', '2020'].map((year) => (
+                        {['2027', '2026', '2025', '2024', '2023', '2022', '2021', '2020'].map((year) => (
                           <button
                             key={year}
                             onClick={() => {
-                              setExamYear(year + '학년도');
+                              setExamYear(year + '년도');
                               setIsYearDropdownOpen(false);
                             }}
                             className="w-full text-left px-4 py-2 hover:bg-neutral-50 border-b last:border-b-0"
                           >
-                            {year}학년도
+                            {year}년도
                           </button>
                         ))}
                       </div>
@@ -829,7 +841,7 @@ export default function SNarOCRUpload() {
 
                     {isMonthDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
-                        {['3월', '6월', '9월', '11월'].map((month) => (
+                        {['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'].map((month) => (
                           <button
                             key={month}
                             onClick={() => {
@@ -1114,30 +1126,13 @@ export default function SNarOCRUpload() {
 
       {/* 채점 구간 설정 모달 (기존 LayoutCanvas.tsx, BlockSidebar.tsx) */}
       {isGradingRangeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-          <div className="bg-white rounded-2xl shadow-lg max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
-            {/* 페이지 정보 헤더 */}
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">채점 구간 설정</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={saveLayoutToFile}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={!layout.blocks?.length}
-                  >
-                    레이아웃 저장(JSON)
-                  </button>
-                  <button
-                    onClick={() => setIsGradingRangeModalOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-                <div>
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          {/* 페이지 정보 헤더 */}
+          <div className="p-4 border-b shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h3 className="text-lg font-semibold">채점 구간 설정</h3>
+              <div className="flex items-center gap-3 text-sm text-neutral-600">
+                <div className="px-2 py-0.5 bg-neutral-100 rounded">
                   파일: <span className="font-medium">{fileName ? `${fileName}.pdf` : '업로드된 파일 없음'}</span>
                 </div>
                 <div>
@@ -1146,47 +1141,87 @@ export default function SNarOCRUpload() {
               </div>
             </div>
 
-            {/* 메인 콘텐츠 영역 */}
-            <div className="flex-1 flex">
-              {/* 왼쪽: 업로드된 시험지 (기존 Layoutcanvas)*/}
-              <div className="flex-1 p-6">
-                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50">
-                  {previewUrl ? (
-                    <LayoutCanvas
-                      imageUrl={previewUrl}
-                      layout={layout}
-                      onChange={setLayout}
-                      selected={selectedBlockIndex}
-                      onSelect={setSelectedBlockIndex}
-                      hideControls
-                      className="w-full"
-                      canvasClassName="w-full h-auto rounded-lg border border-neutral-200 bg-white"
-                    />
-                  ) : (
-                    <div className="text-center text-sm text-gray-500">
-                      <div className="mb-2 text-3xl">📄</div>
-                      PDF를 업로드하면 미리보기가 표시됩니다.
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveLayoutToFile}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!layout.blocks?.length}
+              >
+                레이아웃 저장(JSON)
+              </button>
+              <button
+                onClick={() => setIsGradingRangeModalOpen(false)}
+                className="p-2 hover:bg-neutral-100 rounded-full text-gray-500 hover:text-gray-700"
+              >
+                <span className="sr-only">닫기</span>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-              {/* 오른쪽: 페이지 네비게이션 및 블록 목록 (기존 구현된 바 없음) */}
-              <div className="w-96 p-6 border-l">
+          {/* 메인 콘텐츠 영역 */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* 왼쪽: 업로드된 시험지 (기존 Layoutcanvas)*/}
+            <div className="flex-1 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+              {/* 사이드바 닫혔을 때 여는 버튼 */}
+              {!isSidebarOpen && (
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="absolute top-4 right-4 z-10 p-2 bg-white rounded-lg shadow-md hover:bg-neutral-50 border text-neutral-600"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
+
+              <div className="w-full h-full flex items-center justify-center">
+                {previewUrl ? (
+                  <LayoutCanvas
+                    imageUrl={previewUrl}
+                    layout={layout}
+                    onChange={setLayout}
+                    selected={selectedBlockIndex}
+                    onSelect={setSelectedBlockIndex}
+                    hideControls
+                    className="w-full h-full"
+                    canvasClassName="w-full h-auto shadow-lg border border-neutral-200 bg-white"
+                  />
+                ) : (
+                  <div className="text-center text-sm text-gray-500">
+                    <div className="mb-2 text-3xl">📄</div>
+                    PDF를 업로드하면 미리보기가 표시됩니다.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 오른쪽: 페이지 네비게이션 및 블록 목록 (기존 구현된 바 없음) */}
+            {isSidebarOpen && (
+              <div className="w-96 p-6 border-l bg-white overflow-y-auto">
                 <div className="space-y-4">
                   {/* 페이지 네비게이션 */}
                   <div>
-                    <h4 className="font-medium text-sm mb-2">페이지 네비게이션</h4>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm">페이지 네비게이션</h4>
+                      <button
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="p-1 hover:bg-neutral-100 rounded text-neutral-500"
+                        title="사이드바 접기"
+                      >
+                        <Menu size={16} />
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       <button className="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50">
                         ← 이전
                       </button>
-                      <input 
-                        type="number" 
-                        value="1" 
+                      <input
+                        type="number"
+                        defaultValue="1"
                         className="w-16 px-2 py-1 text-sm border rounded text-center"
                         min="1"
-                        max="(구현예정)"
+                        max="156"
                       />
                       <span className="text-sm text-gray-500">/ 156</span>
                       <button className="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50">
@@ -1210,9 +1245,8 @@ export default function SNarOCRUpload() {
                               : '템플릿을 선택하세요'}
                           </span>
                           <ChevronDown
-                            className={`h-4 w-4 transition ${
-                              isTemplateDropdownOpen ? 'rotate-180' : ''
-                            }`}
+                            className={`h-4 w-4 transition ${isTemplateDropdownOpen ? 'rotate-180' : ''
+                              }`}
                           />
                         </button>
                         {isTemplateDropdownOpen && (
@@ -1256,29 +1290,61 @@ export default function SNarOCRUpload() {
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* 하단: 채점 시작 버튼 (GradeRunner.tsx 참고)*/}
-            <div className="p-6 border-t bg-gray-50">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-600">
-                  총 {layout.blocks?.length ?? 0}개 블록 선택됨
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setIsGradingRangeModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={() => void handleStartGrading()}
-                    className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isGrading || !sessionId}
-                  >
-                    {isGrading ? '채점중…' : '채점 시작'}
-                  </button>
-                </div>
+          {/* 하단: 채점 시작 버튼 (GradeRunner.tsx 참고)*/}
+          {/* 하단: 채점 시작/결과 버튼 */}
+          <div className="p-4 border-t bg-gray-50">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                총 {layout.blocks?.length ?? 0}개 블록 선택됨
+              </div>
+              <div className="flex items-center gap-2">
+                {gradeResult ? (
+                  <>
+                    <div className="flex items-center text-green-600 font-medium mr-2">
+                      <span className="mr-1">✓</span> 채점 완료
+                    </div>
+                    <button
+                      onClick={() => setIsGradingRangeModalOpen(false)}
+                      className="px-4 py-2 rounded-xl border hover:bg-neutral-50 text-gray-600"
+                    >
+                      닫기
+                    </button>
+                    {gradeResult.csv_url && (
+                      <a
+                        href={gradeResult.csv_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 flex items-center gap-2"
+                      >
+                        <Download size={16} />
+                        CSV 다운로드
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsGradingRangeModalOpen(false)}
+                      className="px-4 py-2 rounded-xl border hover:bg-neutral-50 disabled:opacity-50"
+                      disabled={isGrading}
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={() => void handleStartGrading()}
+                      className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
+                      disabled={isGrading || !sessionId}
+                    >
+                      {isGrading && (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      )}
+                      {isGrading ? '채점 진행 중...' : '채점 시작'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1286,258 +1352,260 @@ export default function SNarOCRUpload() {
       )}
 
       {/* 성적표 정보 입력 모달 */}
-      {isGradeInfoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
-          <div className="bg-white rounded-2xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">성적표 정보 입력</h3>
-              <p className="text-sm text-neutral-600 mt-1">원점수별 표준점수, 백분위, 등급, 응시자수를 입력하세요</p>
-            </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                {/* CSV 업로드 */}
-                <div className="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
-                  <label className="text-sm font-medium mb-2 block">CSV 파일로 업로드</label>
-                  <p className="text-xs text-gray-600 mb-3">표준점수, 백분위, 등급 정보가 포함된 CSV 파일을 업로드하세요</p>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    className="w-full text-sm text-gray-600"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const csvText = event.target?.result as string;
-                        const lines = csvText.split('\n');
-                        
-                        if (lines.length < 2) {
-                          alert('CSV 파일 형식이 올바르지 않습니다.');
-                          return;
-                        }
-                        
-                        const headers = lines[0].split(',');
-                        const newGradeInfo = [];
-                        
-                        for (let i = 1; i < lines.length; i++) {
-                          if (!lines[i].trim()) continue;
-                          const values = lines[i].split(',');
-                          const rawScore = parseInt(values[0].trim());
-                          
-                          if (!isNaN(rawScore)) {
-                            newGradeInfo.push({
-                              score: rawScore,
-                              standardScore: values[1]?.trim() || '',
-                              percentile: values[2]?.trim() || '',
-                              grade: values[3]?.trim() || '',
-                              testTakers: values[4]?.trim() || ''
-                            });
+      {
+        isGradeInfoModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+            <div className="bg-white rounded-2xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold">성적표 정보 입력</h3>
+                <p className="text-sm text-neutral-600 mt-1">원점수별 표준점수, 백분위, 등급, 응시자수를 입력하세요</p>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-4">
+                  {/* CSV 업로드 */}
+                  <div className="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                    <label className="text-sm font-medium mb-2 block">CSV 파일로 업로드</label>
+                    <p className="text-xs text-gray-600 mb-3">표준점수, 백분위, 등급 정보가 포함된 CSV 파일을 업로드하세요</p>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="w-full text-sm text-gray-600"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const csvText = event.target?.result as string;
+                          const lines = csvText.split('\n');
+
+                          if (lines.length < 2) {
+                            alert('CSV 파일 형식이 올바르지 않습니다.');
+                            return;
                           }
-                        }
-                        
+
+                          const headers = lines[0].split(',');
+                          const newGradeInfo = [];
+
+                          for (let i = 1; i < lines.length; i++) {
+                            if (!lines[i].trim()) continue;
+                            const values = lines[i].split(',');
+                            const rawScore = parseInt(values[0].trim());
+
+                            if (!isNaN(rawScore)) {
+                              newGradeInfo.push({
+                                score: rawScore,
+                                standardScore: values[1]?.trim() || '',
+                                percentile: values[2]?.trim() || '',
+                                grade: values[3]?.trim() || '',
+                                testTakers: values[4]?.trim() || ''
+                              });
+                            }
+                          }
+
+                          setGradeInfo(newGradeInfo);
+                          alert('CSV 파일이 업로드되었습니다.');
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                    <p className="text-xs text-gray-500 mt-2">CSV 형식: 원점수,표준점수,백분위,등급,응시자수</p>
+                  </div>
+
+                  {/* 응시자수 입력 (단 한 번만) */}
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">전체 응시자수</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="예: 1000"
+                      onChange={(e) => {
+                        const newGradeInfo = [...gradeInfo];
+                        newGradeInfo[0] = { ...newGradeInfo[0], testTakers: e.target.value };
                         setGradeInfo(newGradeInfo);
-                        alert('CSV 파일이 업로드되었습니다.');
-                      };
-                      reader.readAsText(file);
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">CSV 형식: 원점수,표준점수,백분위,등급,응시자수</p>
-                </div>
+                      }}
+                    />
+                  </div>
 
-                {/* 응시자수 입력 (단 한 번만) */}
-                <div className="mb-4">
-                  <label className="text-sm font-medium mb-2 block">전체 응시자수</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="예: 1000"
-                    onChange={(e) => {
-                      const newGradeInfo = [...gradeInfo];
-                      newGradeInfo[0] = { ...newGradeInfo[0], testTakers: e.target.value };
-                      setGradeInfo(newGradeInfo);
-                    }}
-                  />
-                </div>
-
-                {/* 성적표 정보 입력 테이블 */}
-                <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-300 text-sm table-fixed">
-                    <thead className="bg-gray-200">
-                      <tr>
-                        <th className="border border-gray-300 p-2 text-center w-24">원점수</th>
-                        <th className="border border-gray-300 p-2 text-center w-32">표준점수</th>
-                        <th className="border border-gray-300 p-2 text-center w-32">백분위 (1-100)</th>
-                        <th className="border border-gray-300 p-2 text-center w-32">등급 (1-9)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        // 생활과 윤리, 사회문화 등 모든 사회탐구는 50점 만점
-                        const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
-                        const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
-                        const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
-                        const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
-                        return Array.from({ length: maxScore + 1 }, (_, i) => i).reverse().map((score) => (
-                        <tr key={score}>
-                          <td className="border border-gray-300 p-2 text-center bg-gray-100 font-bold">
-                            {score}
-                          </td>
-                          <td className="border border-gray-300 p-2">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="w-full border-none focus:ring-0 text-center text-sm"
-                              onChange={(e) => {
-                                const newGradeInfo = [...gradeInfo];
-                                const existingIndex = newGradeInfo.findIndex(item => item.score === score);
-                                if (existingIndex >= 0) {
-                                  newGradeInfo[existingIndex].standardScore = e.target.value;
-                                } else {
-                                  newGradeInfo.push({
-                                    score,
-                                    standardScore: e.target.value,
-                                    percentile: '',
-                                    grade: '',
-                                    testTakers: ''
-                                  });
-                                }
-                                setGradeInfo(newGradeInfo);
-                              }}
-                            />
-                          </td>
-                          <td className="border border-gray-300 p-2">
-                            <input
-                              type="number"
-                              min="1"
-                              max="100"
-                              className="w-full border-none focus:ring-0 text-center text-sm"
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value);
-                                if (value >= 1 && value <= 100) {
-                                  const newGradeInfo = [...gradeInfo];
-                                  const existingIndex = newGradeInfo.findIndex(item => item.score === score);
-                                  if (existingIndex >= 0) {
-                                    newGradeInfo[existingIndex].percentile = e.target.value;
-                                  } else {
-                                    newGradeInfo.push({
-                                      score,
-                                      standardScore: '',
-                                      percentile: e.target.value,
-                                      grade: '',
-                                      testTakers: ''
-                                    });
-                                  }
-                                  setGradeInfo(newGradeInfo);
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="border border-gray-300 p-2">
-                            <input
-                              type="number"
-                              min="1"
-                              max="9"
-                              className="w-full border-none focus:ring-0 text-center text-sm"
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value);
-                                if (value >= 1 && value <= 9) {
-                                  const newGradeInfo = [...gradeInfo];
-                                  const existingIndex = newGradeInfo.findIndex(item => item.score === score);
-                                  if (existingIndex >= 0) {
-                                    newGradeInfo[existingIndex].grade = e.target.value;
-                                  } else {
-                                    newGradeInfo.push({
-                                      score,
-                                      standardScore: '',
-                                      percentile: '',
-                                      grade: e.target.value,
-                                      testTakers: ''
-                                    });
-                                  }
-                                  setGradeInfo(newGradeInfo);
-                                }
-                              }}
-                            />
-                          </td>
+                  {/* 성적표 정보 입력 테이블 */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border border-gray-300 text-sm table-fixed">
+                      <thead className="bg-gray-200">
+                        <tr>
+                          <th className="border border-gray-300 p-2 text-center w-24">원점수</th>
+                          <th className="border border-gray-300 p-2 text-center w-32">표준점수</th>
+                          <th className="border border-gray-300 p-2 text-center w-32">백분위 (1-100)</th>
+                          <th className="border border-gray-300 p-2 text-center w-32">등급 (1-9)</th>
                         </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // 생활과 윤리, 사회문화 등 모든 사회탐구는 50점 만점
+                          const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
+                          const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
+                          const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
+                          const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
+                          return Array.from({ length: maxScore + 1 }, (_, i) => i).reverse().map((score) => (
+                            <tr key={score}>
+                              <td className="border border-gray-300 p-2 text-center bg-gray-100 font-bold">
+                                {score}
+                              </td>
+                              <td className="border border-gray-300 p-2">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  className="w-full border-none focus:ring-0 text-center text-sm"
+                                  onChange={(e) => {
+                                    const newGradeInfo = [...gradeInfo];
+                                    const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                    if (existingIndex >= 0) {
+                                      newGradeInfo[existingIndex].standardScore = e.target.value;
+                                    } else {
+                                      newGradeInfo.push({
+                                        score,
+                                        standardScore: e.target.value,
+                                        percentile: '',
+                                        grade: '',
+                                        testTakers: ''
+                                      });
+                                    }
+                                    setGradeInfo(newGradeInfo);
+                                  }}
+                                />
+                              </td>
+                              <td className="border border-gray-300 p-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="100"
+                                  className="w-full border-none focus:ring-0 text-center text-sm"
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    if (value >= 1 && value <= 100) {
+                                      const newGradeInfo = [...gradeInfo];
+                                      const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                      if (existingIndex >= 0) {
+                                        newGradeInfo[existingIndex].percentile = e.target.value;
+                                      } else {
+                                        newGradeInfo.push({
+                                          score,
+                                          standardScore: '',
+                                          percentile: e.target.value,
+                                          grade: '',
+                                          testTakers: ''
+                                        });
+                                      }
+                                      setGradeInfo(newGradeInfo);
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="border border-gray-300 p-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="9"
+                                  className="w-full border-none focus:ring-0 text-center text-sm"
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    if (value >= 1 && value <= 9) {
+                                      const newGradeInfo = [...gradeInfo];
+                                      const existingIndex = newGradeInfo.findIndex(item => item.score === score);
+                                      if (existingIndex >= 0) {
+                                        newGradeInfo[existingIndex].grade = e.target.value;
+                                      } else {
+                                        newGradeInfo.push({
+                                          score,
+                                          standardScore: '',
+                                          percentile: '',
+                                          grade: e.target.value,
+                                          testTakers: ''
+                                        });
+                                      }
+                                      setGradeInfo(newGradeInfo);
+                                    }
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 하단: 저장 버튼 */}
-            <div className="p-6 border-t bg-gray-50">
-              <div className="flex justify-between items-center">
-                <button 
-                  onClick={() => {
-                    const csvData = [];
-                    csvData.push('원점수,표준점수,백분위,등급,응시자수');
-                    
-                    // 50점 또는 100점 만점에 따라 데이터 생성
-                    const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
-                    const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
-                    const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
-                    const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
-                    
-                    for (let i = maxScore; i >= 0; i--) {
-                      const item = gradeInfo.find(g => g.score === i);
-                      const standardScore = item?.standardScore || '';
-                      const percentile = item?.percentile || '';
-                      const grade = item?.grade || '';
-                      const testTakers = item?.testTakers || (gradeInfo[0]?.testTakers || '');
-                      csvData.push(`${i},${standardScore},${percentile},${grade},${testTakers}`);
-                    }
-                    
-                    const csvContent = csvData.join('\n');
-                    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement('a');
-                    const url = URL.createObjectURL(blob);
-                    link.setAttribute('href', url);
-                    
-                    const subjectName = selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory :
-                                       selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
-                                       selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
-                                       selectedSubject;
-                    link.setAttribute('download', `성적표정보_${subjectName}_${new Date().toISOString().split('T')[0]}.csv`);
-                    link.style.visibility = 'hidden';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="px-4 py-2 rounded-xl border border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                >
-                  <Download size={14} />
-                  CSV로 다운로드
-                </button>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setIsGradeInfoModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
-                  >
-                    취소
-                  </button>
-                  <button 
+              {/* 하단: 저장 버튼 */}
+              <div className="p-6 border-t bg-gray-50">
+                <div className="flex justify-between items-center">
+                  <button
                     onClick={() => {
-                      console.log('성적표 정보 저장:', gradeInfo);
-                      setIsGradeInfoModalOpen(false);
-                      setIsGradingRangeModalOpen(true); // 채점 구간 설정 모달로 이동
+                      const csvData = [];
+                      csvData.push('원점수,표준점수,백분위,등급,응시자수');
+
+                      // 50점 또는 100점 만점에 따라 데이터 생성
+                      const isSocialSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'social';
+                      const isScienceSubject = selectedSubject === '탐구' && selectedSubjectCategory === 'science';
+                      const isHistorySubject = selectedSubject === '탐구' && selectedSubjectCategory === 'history';
+                      const maxScore = (isSocialSubject || isScienceSubject || isHistorySubject) ? 50 : 100;
+
+                      for (let i = maxScore; i >= 0; i--) {
+                        const item = gradeInfo.find(g => g.score === i);
+                        const standardScore = item?.standardScore || '';
+                        const percentile = item?.percentile || '';
+                        const grade = item?.grade || '';
+                        const testTakers = item?.testTakers || (gradeInfo[0]?.testTakers || '');
+                        csvData.push(`${i},${standardScore},${percentile},${grade},${testTakers}`);
+                      }
+
+                      const csvContent = csvData.join('\n');
+                      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const link = document.createElement('a');
+                      const url = URL.createObjectURL(blob);
+                      link.setAttribute('href', url);
+
+                      const subjectName = selectedSubject === '탐구' && selectedSubjectCategory === 'social' ? selectedSocialCategory :
+                        selectedSubject === '탐구' && selectedSubjectCategory === 'science' ? selectedScienceCategory :
+                          selectedSubject === '탐구' && selectedSubjectCategory === 'history' ? selectedHistoryCategory :
+                            selectedSubject;
+                      link.setAttribute('download', `성적표정보_${subjectName}_${new Date().toISOString().split('T')[0]}.csv`);
+                      link.style.visibility = 'hidden';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
                     }}
-                    className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
+                    className="px-4 py-2 rounded-xl border border-blue-600 text-blue-600 hover:bg-blue-50 flex items-center gap-2"
                   >
-                    저장 및 다음
+                    <Download size={14} />
+                    CSV로 다운로드
                   </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsGradeInfoModalOpen(false)}
+                      className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log('성적표 정보 저장:', gradeInfo);
+                        setIsGradeInfoModalOpen(false);
+                        setIsGradingRangeModalOpen(true); // 채점 구간 설정 모달로 이동
+                      }}
+                      className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
+                    >
+                      저장 및 다음
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </SNarOCRLayout>
+        )
+      }
+    </SNarOCRLayout >
   );
 }

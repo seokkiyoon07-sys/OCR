@@ -17,6 +17,7 @@ interface AuthContextValue {
   hasMounted: boolean; // Added to track client-side mount state
   error: string | null;
   login: (userId: string, password: string) => Promise<{ ok: boolean; message?: string }>;
+  bypassAuth: () => void;
   logout: () => void;
 }
 
@@ -157,6 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistUserId],
   );
 
+  const bypassAuth = useCallback(() => {
+    const developerId = 'developer';
+    setUserId(developerId);
+    persistUserId(developerId);
+    setError(null);
+  }, [persistUserId]);
+
   const logout = useCallback(() => {
     setUserId(null);
     setError(null);
@@ -171,9 +179,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasMounted,
       error,
       login,
+      bypassAuth,
       logout,
     }),
-    [userId, isLoading, hasMounted, error, login, logout],
+    [userId, isLoading, hasMounted, error, login, bypassAuth, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

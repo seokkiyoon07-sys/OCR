@@ -147,11 +147,11 @@ function drawCenteredText(
     ctx.strokeStyle = stroke;
     try {
       ctx.strokeText(String(text), x, y);
-    } catch {}
+    } catch { }
   }
   try {
     ctx.fillText(String(text), x, y);
-  } catch {}
+  } catch { }
   ctx.restore();
 }
 
@@ -812,6 +812,8 @@ export default function LayoutCanvas({
             <TransformComponent
               wrapperClass="w-full h-full"
               contentClass="w-full h-full"
+              wrapperStyle={{ width: '100%', height: '100%' }}
+              contentStyle={{ width: '100%' }}
             >
               <canvas
                 ref={canvasRef}

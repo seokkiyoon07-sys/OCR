@@ -7,12 +7,12 @@ import { Download, ChevronDown, FileDown } from 'lucide-react';
 export default function SNarOCRResults() {
   // 채점 결과 선택 상태
   const [selectedDate, setSelectedDate] = useState('2025년 9월 15일');
-  const [selectedExam, setSelectedExam] = useState('2025학년도 9월 모의고사');
-  
+  const [selectedExam, setSelectedExam] = useState('2025년도 9월 모의고사');
+
   // 드롭다운 상태
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [isExamDropdownOpen, setIsExamDropdownOpen] = useState(false);
-  
+
   // 채점 학생 수 (샘플 데이터)
   const gradedCount = 28;
 
@@ -75,11 +75,11 @@ export default function SNarOCRResults() {
   const generateAllQuestionsData = () => {
     const totalQuestions = totalQuestionsBySubject[mainSubject as keyof typeof totalQuestionsBySubject];
     const allQuestions = [];
-    
+
     for (let i = 1; i <= totalQuestions; i++) {
       const topQuestion = statsData.topWrongQuestions.find(q => q.question === i);
       const topStudentQuestion = statsData.topStudentsWrongQuestions.find(q => q.question === i);
-      
+
       allQuestions.push({
         question: i,
         wrongCount: topQuestion?.wrongCount || 0,
@@ -88,14 +88,14 @@ export default function SNarOCRResults() {
         topStudentPercentage: topStudentQuestion?.percentage || 0
       });
     }
-    
+
     return allQuestions;
   };
 
   // CSV 다운로드 함수
   const downloadWrongAnswersCSV = () => {
     const allQuestions = generateAllQuestionsData();
-    
+
     const csvContent = [
       '문항,오답수,전체인원,오답률(%),상위권오답수,상위권오답률(%)',
       ...allQuestions.map((item) => {
@@ -171,11 +171,11 @@ export default function SNarOCRResults() {
                     <span>{selectedDate}</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${isDateDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
-              
+
                   {isDateDropdownOpen && (
                     <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
                       {['2025년 9월 15일', '2025년 9월 14일', '2025년 9월 13일', '2025년 9월 12일', '2025년 9월 11일'].map((date) => (
-                <button 
+                        <button
                           key={date}
                           onClick={() => {
                             setSelectedDate(date);
@@ -184,7 +184,7 @@ export default function SNarOCRResults() {
                           className="w-full text-left px-4 py-2 hover:bg-neutral-50 border-b last:border-b-0"
                         >
                           {date}
-                </button>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -205,10 +205,10 @@ export default function SNarOCRResults() {
                     <span>{selectedExam}</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${isExamDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
-                  
+
                   {isExamDropdownOpen && (
                     <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border bg-white shadow-lg max-h-60 overflow-y-auto">
-                      {['2025학년도 9월 모의고사', '2025학년도 6월 모의고사', '2025학년도 3월 학력평가', '2024학년도 11월 모의고사', '2024학년도 9월 모의고사'].map((exam) => (
+                      {['2025년도 9월 모의고사', '2025년도 6월 모의고사', '2025년도 3월 학력평가', '2024년도 11월 모의고사', '2024년도 9월 모의고사'].map((exam) => (
                         <button
                           key={exam}
                           onClick={() => {
@@ -218,7 +218,7 @@ export default function SNarOCRResults() {
                           className="w-full text-left px-4 py-2 hover:bg-neutral-50 border-b last:border-b-0"
                         >
                           {exam}
-                  </button>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -239,11 +239,11 @@ export default function SNarOCRResults() {
 
           {/* 개별 결과 파일 */}
           <div className="rounded-2xl border bg-white">
-              <div className="p-6 border-b">
+            <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">개별 결과 (CSV)</h3>
               <p className="text-sm text-neutral-600 mt-1">과목을 선택하여 채점 결과를 다운로드하세요</p>
-              </div>
-              <div className="p-6">
+            </div>
+            <div className="p-6">
               {/* 과목 선택 */}
               <div className="mb-4">
                 <label className="text-sm font-medium mb-2 block">과목 선택</label>
@@ -255,11 +255,10 @@ export default function SNarOCRResults() {
                         setMainSubject(subject.id);
                         setSubSubject('');
                       }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        mainSubject === subject.id
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mainSubject === subject.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {subject.name}
                     </button>
@@ -275,11 +274,10 @@ export default function SNarOCRResults() {
                         <button
                           key={subSubjectItem.id}
                           onClick={() => setSubSubject(subSubjectItem.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            subSubject === subSubjectItem.id
-                              ? 'bg-gray-700 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${subSubject === subSubjectItem.id
+                            ? 'bg-gray-700 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                            }`}
                         >
                           {subSubjectItem.name}
                         </button>
@@ -294,7 +292,7 @@ export default function SNarOCRResults() {
                 <div className="text-sm font-medium mb-2">파일 형식</div>
                 <div className="text-xs font-mono bg-white p-3 rounded border border-gray-300 overflow-x-auto">
                   <div className="whitespace-pre text-gray-700">
-{`수험번호,이름,소속반,과목코드,총점,만점,총문제수,정답수,오답번호
+                    {`수험번호,이름,소속반,과목코드,총점,만점,총문제수,정답수,오답번호
 20231001,홍길동,1반,KOR,85,100,45,42,3,7,9
 20231002,김철수,1반,KOR,92,100,45,46,7
 20231003,이영희,2반,KOR,78,100,45,39,1,3,5,9
@@ -302,7 +300,7 @@ export default function SNarOCRResults() {
                   </div>
                 </div>
               </div>
-              
+
               {/* 다운로드 버튼 */}
               <div className="flex gap-3">
                 <button className="px-4 py-2 rounded-xl border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium text-sm flex items-center gap-1">
@@ -341,8 +339,8 @@ export default function SNarOCRResults() {
                 <div className="rounded-xl bg-red-50 p-4 border-2 border-red-200">
                   <div className="text-2xl font-bold text-red-600">{statsData.lowestScore}</div>
                   <div className="text-xs text-red-700 font-medium">최저점</div>
-                        </div>
-                        </div>
+                </div>
+              </div>
 
               {/* 점수 분포 */}
               <div className="mb-6">
@@ -360,9 +358,9 @@ export default function SNarOCRResults() {
                         </div>
                       </div>
                       <div className="w-16 text-xs text-gray-600 text-right">{item.percentage}%</div>
-                          </div>
-                        ))}
-                  </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -413,14 +411,14 @@ export default function SNarOCRResults() {
                                 className="h-4 rounded-full bg-red-500"
                                 style={{ width: `${item.percentage}%` }}
                               ></div>
-                        </div>
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                        </div>
-                      </div>
+                </div>
+              </div>
 
               {/* 상위권 오답률 상위 5개 */}
               <div>
@@ -448,14 +446,14 @@ export default function SNarOCRResults() {
                               <div
                                 className="h-4 rounded-full bg-orange-500"
                                 style={{ width: `${item.percentage}%` }}
-                        ></div>
-                      </div>
+                              ></div>
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                    </div>
+                </div>
               </div>
             </div>
           </div>
