@@ -30,11 +30,11 @@ export function validateInput(input: string, type: 'email' | 'text' | 'number'):
 
 // 파일 업로드 검증
 export function validateFile(file: File): { isValid: boolean; error?: string } {
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  const maxSize = 100 * 1024 * 1024; // 100MB
   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   
   if (file.size > maxSize) {
-    return { isValid: false, error: '파일 크기는 10MB를 초과할 수 없습니다.' };
+    return { isValid: false, error: '파일 크기는 100MB를 초과할 수 없습니다.' };
   }
   
   if (!allowedTypes.includes(file.type)) {

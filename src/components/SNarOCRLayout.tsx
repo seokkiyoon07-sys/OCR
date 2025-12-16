@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { useSNarOCRNavigation } from '@/hooks/useSNarOCRNavigation';
-import { Home, Upload, BarChart3, CreditCard, HelpCircle, X, User } from 'lucide-react';
+import { Home, Upload, BarChart3, CreditCard, HelpCircle, User } from 'lucide-react';
+import AuthControls from '@/components/auth/AuthControls';
 
 interface SNarOCRLayoutProps {
   children: React.ReactNode;
@@ -10,7 +10,6 @@ interface SNarOCRLayoutProps {
 }
 
 export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNarOCRLayoutProps) {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { navigateTo } = useSNarOCRNavigation();
 
   const handleGoto = (page: string) => {
@@ -43,12 +42,7 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
             >
               문의
             </button>
-            <button
-              className="px-3 py-2 text-sm rounded-xl bg-black text-white hover:bg-neutral-800"
-              onClick={() => setIsAuthModalOpen(true)}
-            >
-              로그인
-            </button>
+            <AuthControls />
           </div>
         </div>
       </header>
@@ -120,43 +114,6 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
           {children}
         </main>
       </div>
-
-      {/* Auth Modal */}
-      {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-20 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">로그인</h3>
-                <button
-                  className="px-2 py-1 text-sm rounded-lg hover:bg-neutral-100"
-                  onClick={() => setIsAuthModalOpen(false)}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <input
-                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="이메일"
-                type="email"
-              />
-              <input
-                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="비밀번호"
-                type="password"
-              />
-              <button className="w-full px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800">
-                로그인
-              </button>
-              <p className="text-sm text-center text-neutral-600">
-                계정이 없으신가요? <span className="text-black font-medium cursor-pointer hover:underline">회원가입</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="border-t bg-white">

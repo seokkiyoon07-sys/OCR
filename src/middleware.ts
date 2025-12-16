@@ -22,6 +22,13 @@ export function middleware(request: NextRequest) {
   
   // Referrer Policy
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Determine allowed API origins for CSP
+  // In development, allow connections to the same host on API port (8000)
+  const host = request.headers.get('host') || '';
+  const hostname = host.split(':')[0];
+  const protocol = request.headers.get('x-forwarded-proto') || 'http';
+  const apiOrigin = `${protocol}://${hostname}:8000`;
   
   // Content Security Policy
   const csp = [
@@ -30,7 +37,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://api.snar-ocr.com",
+    `connect-src 'self' https://api.snar-ocr.com ${apiOrigin} http://${hostname}:8000`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'"

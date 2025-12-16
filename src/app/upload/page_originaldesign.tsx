@@ -1,87 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import SNarOCRLayout from '@/components/SNarOCRLayout';
 import { Upload, ChevronDown, Download } from 'lucide-react';
-import { validateFile } from '@/lib/security';
-import LayoutCanvas from '@/components/upload/LayoutCanvas';
-import BlockSidebar from '@/components/upload/BlockSidebar';
-import AnswerEditor from '@/components/upload/AnswerEditor';
-import type { Layout } from '@/types/omr';
-import { useAuth, resolveApiUrl } from '@/contexts/AuthContext';
-import { deriveSubjectInfo } from '@/lib/examMetadata';
-
-interface UploadResponse {
-  session_id: string;
-  preview_url: string;
-  filename: string;
-}
-
-interface GradeResponse {
-  log?: string;
-  csv_url?: string;
-  json_url?: string;
-  zip_url?: string;
-  [key: string]: unknown;
-}
-
-const INITIAL_LAYOUT: Layout = {
-  dpi: 300,
-  blocks: [],
-};
-
-interface ExamMetaState {
-  examYear: number | null;
-  examMonth: number | null;
-  providerName: string | null;
-  gradeLevel: string | null;
-}
-
-interface ExamMetadataForApi {
-  examYear: number | null;
-  examMonth: number | null;
-  providerName: string | null;
-  gradeLevel: string | null;
-  examCode: string | null;
-  examLabel: string | null;
-  subjectCode: string;
-  subjectName: string;
-  paperLabel: string | null;
-}
+import { useSNarOCRNavigation } from '@/hooks/useSNarOCRNavigation';
+import { validateInput, validateFile, sanitizeInput } from '@/lib/security';
+import { safeExecute, validateRequired, validateRange } from '@/lib/error-handling';
 
 export default function SNarOCRUpload() {
-  const { isAuthenticated, userId } = useAuth();
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [layout, setLayout] = useState<Layout>(INITIAL_LAYOUT);
-  const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null);
-  const [templateName, setTemplateName] = useState('');
-  const [templateList, setTemplateList] = useState<string[]>([]);
-  const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [answerFileName, setAnswerFileName] = useState('');
-  const [gradeLog, setGradeLog] = useState('');
-  const [gradeResult, setGradeResult] = useState<GradeResponse | null>(null);
-  const [threshold, setThreshold] = useState(0.05);
-  const [tie, setTie] = useState(0.05);
-  const [answerKey, setAnswerKey] = useState('{}');
-  const [isGrading, setIsGrading] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
   const [isFindAnswerModalOpen, setIsFindAnswerModalOpen] = useState(false);
   const [isGradingRangeModalOpen, setIsGradingRangeModalOpen] = useState(false);
   const [isGradeInfoModalOpen, setIsGradeInfoModalOpen] = useState(false);
-  const [gradeInfo, setGradeInfo] = useState<Array<{
-    score: number;
-    standardScore: string;
-    percentile: string;
-    grade: string;
-    testTakers: string;
-  }>>([]);
   
   // 과목별 만점 정보
   const maxScoreBySubject = {
@@ -95,6 +27,7 @@ export default function SNarOCRUpload() {
   const [selectedSubject, setSelectedSubject] = useState('과목을 선택하세요');
   const [uploadError, setUploadError] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [answerModalTab, setAnswerModalTab] = useState<'answers' | 'scores'>('answers');
   const [selectedExam, setSelectedExam] = useState('시험을 선택하세요');
   const [customQuestionCount, setCustomQuestionCount] = useState('');
   const [customMultipleChoice, setCustomMultipleChoice] = useState('');
@@ -113,253 +46,96 @@ export default function SNarOCRUpload() {
   const [examOrganizationCustom, setExamOrganizationCustom] = useState('');
   const [examGrade, setExamGrade] = useState('');
 
-  const [examMeta, setExamMeta] = useState<ExamMetaState>({
-    examYear: null,
-    examMonth: null,
-    providerName: null,
-    gradeLevel: null,
-  });
-
+  // 정답 입력 상태 (5문항씩 묶어서 관리)
+  const [answers, setAnswers] = useState<string[]>([]);
+  // 배점 입력 상태
+  const [scores, setScores] = useState<string[]>([]);
 
   // 드롭다운 상태
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
   const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
 
-  const subjectInfo = useMemo(
-    () =>
-      deriveSubjectInfo({
-        subject: selectedSubject,
-        subjectCategory: selectedSubjectCategory,
-        socialCategory: selectedSocialCategory,
-        scienceCategory: selectedScienceCategory,
-        historyCategory: selectedHistoryCategory,
-      }),
-    [
-      selectedSubject,
-      selectedSubjectCategory,
-      selectedSocialCategory,
-      selectedScienceCategory,
-      selectedHistoryCategory,
-    ],
-  );
+  // 블록 관리 상태
+  interface Block {
+    id: string;
+    type: string; // 타입 (text, checkbox, radio 등 자유 입력)
+    dataFormat: 'grid' | 'digits' | 'id' | 'phone' | 'name' | 'code'; // 데이터 형식
+    choices?: number; // 선택지(열)
+    rows?: number; // 행
+  }
+  
+  const [blocks, setBlocks] = useState<Block[]>([
+    { id: 'block1', type: 'text', dataFormat: 'name', rows: 1 }, // 이름
+    { id: 'block2', type: 'text', dataFormat: 'id', rows: 1 }, // 학번
+    { id: 'block3', type: 'text', dataFormat: 'code', rows: 1 }, // 과목번호
+  ]);
 
-  const examMetadataForApi = useMemo<ExamMetadataForApi | null>(
-    () => {
-      if (!subjectInfo.subjectCode) return null;
-      const label =
-        selectedExam && selectedExam !== '시험을 선택하세요'
-          ? selectedExam
-          : fileName || null;
-      return {
-        examYear: examMeta.examYear,
-        examMonth: examMeta.examMonth,
-        providerName: examMeta.providerName,
-        gradeLevel: examMeta.gradeLevel,
-        examCode: fileName || null,
-        examLabel: label,
-        subjectCode: subjectInfo.subjectCode,
-        subjectName: subjectInfo.subjectName,
-        paperLabel: subjectInfo.paperLabel,
+  const { navigateTo } = useSNarOCRNavigation();
+  
+  // 블록 추가
+  const handleAddBlock = () => {
+    const newBlockId = `block${blocks.length + 1}`;
+    setBlocks([...blocks, { id: newBlockId, type: 'checkbox', dataFormat: 'grid', choices: 5, rows: 1 }]);
+  };
+  
+  // 블록 삭제
+  const handleRemoveBlock = (blockId: string) => {
+    setBlocks(blocks.filter(block => block.id !== blockId));
+  };
+  
+  // 블록 복제
+  const handleDuplicateBlock = (blockId: string) => {
+    const blockToDuplicate = blocks.find(block => block.id === blockId);
+    if (blockToDuplicate) {
+      const newBlockId = `block${blocks.length + 1}`;
+      const duplicatedBlock = {
+        ...blockToDuplicate,
+        id: newBlockId
       };
-    },
-    [examMeta, fileName, selectedExam, subjectInfo],
-  );
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const response = await fetch('/api/templates');
-        if (!response.ok) throw new Error('템플릿 목록을 불러오지 못했습니다.');
-        const files = (await response.json()) as string[];
-        if (mounted) setTemplateList(Array.isArray(files) ? files : []);
-      } catch (error) {
-        console.error(error);
-        if (mounted) setTemplateList([]);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const templateOptions = useMemo(
-    () =>
-      templateList.map((name) => ({
-        label: name.replace(/\.json$/, ''),
-        value: name,
-      })),
-    [templateList],
-  );
-
-  const resetForNewUpload = () => {
-    setLayout(INITIAL_LAYOUT);
-    setSelectedBlockIndex(null);
-    setAnswerFileName('');
-    setGradeResult(null);
-    setGradeLog('');
+      setBlocks([...blocks, duplicatedBlock]);
+    }
+  };
+  
+  // 블록 업데이트
+  const handleUpdateBlock = (blockId: string, field: keyof Block, value: any) => {
+    setBlocks(blocks.map(block => 
+      block.id === blockId ? { ...block, [field]: value } : block
+    ));
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // 파일 업로드 핸들러
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    const currentUserId = userId?.trim();
-    if (!isAuthenticated || !currentUserId) {
-      setUploadError('PDF를 업로드하려면 로그인이 필요합니다.');
-      event.target.value = '';
-      return;
-    }
-
-    const validation = validateFile(file);
-    if (!validation.isValid) {
-      setUploadError(validation.error ?? '업로드할 수 없는 파일입니다.');
-      event.target.value = '';
-      return;
-    }
 
     setIsUploading(true);
     setUploadError('');
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('template_path', templateName || '');
-      formData.append('user_id', currentUserId);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`업로드 실패 (${response.status})`);
+    const result = await safeExecute(async () => {
+      // 파일 검증
+      const validation = validateFile(file);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
       }
 
-      const data = (await response.json()) as UploadResponse;
-      setSessionId(data.session_id);
-      setPreviewUrl(data.preview_url);
-      setFileName(data.filename);
-      resetForNewUpload();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '업로드 중 오류가 발생했습니다.';
-      setUploadError(message);
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
-    }
-  };
-
-  const handleTemplateLoad = async (value: string) => {
-    setTemplateName(value);
-    setIsTemplateDropdownOpen(false);
-    if (!value) return;
-    try {
-      const response = await fetch(`/api/templates/${encodeURIComponent(value)}`);
-      if (!response.ok) {
-        throw new Error(`템플릿 로드 실패 (${response.status})`);
-      }
-      const json = await response.json();
-      setLayout(json);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '템플릿 로드 중 오류가 발생했습니다.';
-      setUploadError(message);
-    }
-  };
-
-  const saveLayoutToFile = () => {
-    const blob = new Blob([JSON.stringify(layout, null, 2)], {
-      type: 'application/json',
+      // 파일명 정리
+      const sanitizedName = sanitizeInput(file.name);
+      
+      console.log('파일 업로드:', sanitizedName);
+      
+      // 실제 업로드 로직은 여기에 구현
+      // await uploadFile(file);
+      
+      return { fileName: sanitizedName, fileSize: file.size };
     });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${fileName || 'layout'}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
-  };
 
-  const saveLayoutToServer = async () => {
-    if (!sessionId) throw new Error('세션이 없습니다. 먼저 PDF를 업로드하세요.');
-    const response = await fetch('/api/layout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        layout,
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data?.ok === false) {
-      const message = data?.message || `레이아웃 저장 실패 (${response.status})`;
-      throw new Error(message);
-    }
-  };
-
-  const handleStartGrading = async () => {
-    if (!sessionId) {
-      setUploadError('세션이 없습니다. 먼저 PDF를 업로드하세요.');
-      return;
-    }
-    if (!examMetadataForApi) {
-      setUploadError('시험 정보와 과목을 먼저 저장해주세요.');
-      return;
-    }
-
-    let parsedAnswerKey: unknown = {};
-    try {
-      parsedAnswerKey = answerKey ? JSON.parse(answerKey) : {};
-    } catch {
-      setUploadError('answer_key 형식이 올바르지 않습니다. JSON 형식을 확인하세요.');
-      return;
-    }
-
-    setIsGrading(true);
-    setGradeLog('');
-    setGradeResult(null);
-    setUploadError('');
-
-    try {
-      await saveLayoutToServer();
-      // Use Next.js API route with extended timeout (10 min) for grading
-      const response = await fetch('/api/grade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          file_name: fileName,
-          answer_name: answerFileName,
-          T: threshold,
-          tie,
-          answer_key: parsedAnswerKey,
-          exam_year: examMetadataForApi.examYear,
-          exam_month: examMetadataForApi.examMonth,
-          provider_name: examMetadataForApi.providerName,
-          grade_level: examMetadataForApi.gradeLevel,
-          exam_code: examMetadataForApi.examCode ?? fileName,
-          subject_code: examMetadataForApi.subjectCode,
-          subject_name: examMetadataForApi.subjectName,
-          paper_label: examMetadataForApi.paperLabel ?? examMetadataForApi.subjectName,
-        }),
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `채점 실패 (${response.status})`);
-      }
-      const data = (await response.json()) as GradeResponse;
-      setGradeResult(data);
-      setGradeLog(data.log || '');
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '채점 중 오류가 발생했습니다.';
-      setUploadError(message);
-    } finally {
-      setIsGrading(false);
+    setIsUploading(false);
+    
+    if (result.error) {
+      setUploadError(result.error);
+    } else {
+      setUploadError('');
     }
   };
 
@@ -376,36 +152,81 @@ export default function SNarOCRUpload() {
     return 0;
   };
 
+  const handleAnswerInput = (index: number, value: string, maxLength: number, inputRef?: HTMLInputElement) => {
+    // 입력값 검증
+    if (!validateInput(value, 'text')) {
+      setUploadError('올바르지 않은 입력값입니다.');
+      return;
+    }
+
+    const sanitizedValue = sanitizeInput(value);
+    const newAnswers = [...answers];
+    newAnswers[index] = sanitizedValue;
+    setAnswers(newAnswers);
+
+    // 입력이 최대 길이에 도달하면 다음 입력 필드로 자동 이동
+    if (sanitizedValue.length === maxLength && inputRef) {
+      // 다음 입력 필드를 찾기 위해 setTimeout 사용 (상태 업데이트 후 DOM 반영)
+      setTimeout(() => {
+        const form = inputRef.form;
+        if (form) {
+          const inputs = Array.from(form.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+          const currentIndex = inputs.indexOf(inputRef);
+          if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+            inputs[currentIndex + 1].focus();
+          }
+        }
+      }, 0);
+    }
+  };
+
+  // 배점 입력 핸들러 (정수만 허용)
+  const handleScoreInput = (index: number, value: string, inputRef?: HTMLInputElement) => {
+    // 정수만 허용 (소수점 제거)
+    const integerValue = value.replace(/[^0-9]/g, '');
+
+    const newScores = [...scores];
+    newScores[index] = integerValue;
+    setScores(newScores);
+
+    // 입력이 완료되면 다음 입력 필드로 자동 이동
+    if (integerValue && inputRef) {
+      setTimeout(() => {
+        const form = inputRef.form;
+        if (form) {
+          const inputs = Array.from(form.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+          const currentIndex = inputs.indexOf(inputRef);
+          if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+            inputs[currentIndex + 1].focus();
+          }
+        }
+      }, 0);
+    }
+  };
+
+  const handleAnswerSave = () => {
+    if (answerModalTab === 'answers') {
+      // 정답 입력 완료 후 배점 입력 탭으로 이동
+      setAnswerModalTab('scores');
+    } else {
+      // 배점 입력 완료 후 성적표 정보 입력 모달 열기
+      console.log('정답 및 배점 저장:', { answers, scores });
+      setIsAnswerModalOpen(false);
+      setAnswerModalTab('answers'); // 다음 사용을 위해 초기화
+      setIsGradeInfoModalOpen(true); // 성적표 정보 입력 모달 열기
+    }
+  };
+
   const handleExamSave = () => {
     // 시험 정보 저장 로직
     const examInfo = [];
     if (examYear) examInfo.push(examYear);
     if (examMonth) examInfo.push(examMonth);
 
-    const rawProvider = isCustomOrganization ? examOrganizationCustom : examOrganization;
-    const providerName =
-      rawProvider && rawProvider !== '출제기관 선택'
-        ? rawProvider.trim()
-        : '';
-    if (providerName) examInfo.push(providerName);
+    const org = isCustomOrganization ? examOrganizationCustom : examOrganization;
+    if (org && org !== '출제기관 선택') examInfo.push(org);
 
-    const gradeLabel = examGrade.trim();
-    if (gradeLabel) examInfo.push(gradeLabel);
-
-    const parsedYear = examYear ? parseInt(examYear.replace(/[^0-9]/g, ''), 10) : null;
-    const parsedMonth = examMonth ? parseInt(examMonth.replace(/[^0-9]/g, ''), 10) : null;
-
-    const normalizedYear =
-      typeof parsedYear === 'number' && Number.isFinite(parsedYear) ? parsedYear : null;
-    const normalizedMonth =
-      typeof parsedMonth === 'number' && Number.isFinite(parsedMonth) ? parsedMonth : null;
-
-    setExamMeta({
-      examYear: normalizedYear,
-      examMonth: normalizedMonth,
-      providerName: providerName || null,
-      gradeLevel: gradeLabel || null,
-    });
+    if (examGrade) examInfo.push(examGrade);
 
     setSelectedExam(examInfo.length > 0 ? examInfo.join(' ') : '시험을 선택하세요');
     setIsExamModalOpen(false);
@@ -423,41 +244,13 @@ export default function SNarOCRUpload() {
           <div className="grid gap-6 md:grid-cols-3">
             <div className="md:col-span-2 rounded-2xl border bg-white">
               <div className="p-6 space-y-4">
-                <div className="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-8 text-center">
+                <div className="rounded-2xl border border-dashed p-8 text-center" style={{ borderColor: '#f0f0f0' }}>
                   <Upload className="mx-auto mb-2 text-gray-300" size={40} />
                   <div className="mt-2 text-sm text-neutral-600">이미지나 PDF를 업로드 해주세요</div>
-                  <div className="mt-1 text-xs text-neutral-500">
-                    파일을 여기로 끌어다 놓거나 아래 버튼을 클릭해서 선택하세요
-                  </div>
+                  <div className="text-xs text-neutral-500 mt-1">파일을 여기로 끌어다 놓거나 클릭해서 선택</div>
                   <div className="mt-4">
-                    <button
-                      className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                    >
-                      {isUploading ? '업로드 중…' : '파일 선택'}
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/pdf"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
+                    <button className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800">파일 선택</button>
                   </div>
-                  {fileName && (
-                    <div className="mt-3 text-sm text-neutral-500">
-                      <span className="font-medium text-neutral-700">선택된 파일:</span> {fileName}
-                    </div>
-                  )}
-                  {sessionId && (
-                    <div className="mt-1 text-xs text-neutral-500">세션 ID: {sessionId}</div>
-                  )}
-                  {uploadError && (
-                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                      {uploadError}
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -722,7 +515,10 @@ export default function SNarOCRUpload() {
                       <label className="text-sm font-medium">정답지</label>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setIsAnswerModalOpen(true)}
+                          onClick={() => {
+                            setIsAnswerModalOpen(true);
+                            setAnswerModalTab('answers'); // 탭 초기화
+                          }}
                           className="px-3 py-2 rounded-xl border text-sm hover:bg-neutral-50"
                         >
                           정답 입력
@@ -938,60 +734,475 @@ export default function SNarOCRUpload() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <div className="rounded-2xl border bg-white p-6 space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold">채점 결과</h3>
-            <p className="text-sm text-neutral-500">
-              레이아웃과 정답을 저장한 뒤 채점을 실행하면 결과 파일을 내려받을 수 있습니다.
-            </p>
-          </div>
-          {gradeResult ? (
-            <div className="space-y-2">
-              {gradeResult.csv_url && (
-                <a
-                  href={gradeResult.csv_url as string}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+      {/* 정답 입력 모달 */}
+      {isAnswerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
+          <div className="bg-white rounded-2xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">정답 및 배점 입력</h3>
+              <p className="text-sm text-neutral-600 mt-1">
+                {selectedSubject === '과목을 선택하세요'
+                  ? '과목을 먼저 선택해주세요'
+                  : `${selectedSubject} - ${getQuestionCount()}문항`}
+              </p>
+              
+              {/* 탭 네비게이션 */}
+              <div className="flex mt-4 bg-neutral-100 rounded-lg p-1">
+                <button
+                  onClick={() => setAnswerModalTab('answers')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    answerModalTab === 'answers'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-neutral-600 hover:text-black'
+                  }`}
                 >
-                  <Download size={14} /> 결과 CSV 다운로드
-                </a>
+                  1단계: 정답 입력
+                </button>
+                <button
+                  onClick={() => setAnswerModalTab('scores')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    answerModalTab === 'scores'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-neutral-600 hover:text-black'
+                  }`}
+                >
+                  2단계: 배점 입력
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {selectedSubject === '과목을 선택하세요' ? (
+                <div className="text-center py-8 text-neutral-500">
+                  과목을 먼저 선택해주세요
+                </div>
+              ) : answerModalTab === 'answers' ? (
+                // 1단계: 정답 입력
+                <div className="space-y-4">
+                  <div className="text-center py-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-700 font-medium">1단계: 정답을 입력해주세요</p>
+                    <p className="text-xs text-blue-600 mt-1">객관식은 1-5번, 주관식은 답안을 입력하세요</p>
+                  </div>
+                  
+                  {selectedSubject === '수학' ? (
+                // 수학: 공통 객관식(1-15) + 공통 주관식(16-22) + 선택 객관식(23-28) + 선택 주관식(29-30)
+                <>
+                  {/* 공통 객관식 1-15번 */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">공통 객관식 (1-15번)</h4>
+                    {[0, 1, 2].map((groupIndex) => (
+                      <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                        <div className="text-sm text-neutral-600">
+                          {groupIndex * 5 + 1}-{groupIndex * 5 + 5}번
+                        </div>
+                        <div className="col-span-5">
+                          <input
+                            type="text"
+                            value={answers[groupIndex] || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase();
+                              // 5글자 제한
+                              if (value.length <= 5) {
+                                handleAnswerInput(groupIndex, value, 5, e.target);
+                              }
+                            }}
+                            className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                            placeholder="예: 51234"
+                            maxLength={5}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 공통 주관식 16-22번 */}
+                  <div className="border-t pt-4 space-y-3">
+                    <h4 className="font-medium text-sm">공통 주관식 (16-22번)</h4>
+                    <div className="grid grid-cols-4 gap-3">
+                      {[0, 1, 2, 3, 4, 5, 6].map((subIndex) => (
+                        <div key={subIndex} className="space-y-1">
+                          <label className="text-xs text-neutral-600">{16 + subIndex}번</label>
+                          <input
+                            type="text"
+                            value={answers[3 + subIndex] || ''}
+                            onChange={(e) => handleAnswerInput(3 + subIndex, e.target.value, 10, e.target)}
+                            className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="답"
+                            maxLength={10}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 선택 객관식 23-28번 */}
+                  <div className="border-t pt-4 space-y-3">
+                    <h4 className="font-medium text-sm">선택 객관식 (23-28번)</h4>
+                    <div className="grid grid-cols-6 gap-2 items-center">
+                      <div className="text-sm text-neutral-600">23-28번</div>
+                      <div className="col-span-5">
+                        <input
+                          type="text"
+                          value={answers[10] || ''}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            // 6글자 제한
+                            if (value.length <= 6) {
+                              handleAnswerInput(10, value, 6, e.target);
+                            }
+                          }}
+                          className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                          placeholder="예: 512345"
+                          maxLength={6}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 선택 주관식 29-30번 */}
+                  <div className="border-t pt-4 space-y-3">
+                    <h4 className="font-medium text-sm">선택 주관식 (29-30번)</h4>
+                    <div className="grid grid-cols-4 gap-3">
+                      {[0, 1].map((subIndex) => (
+                        <div key={subIndex} className="space-y-1">
+                          <label className="text-xs text-neutral-600">{29 + subIndex}번</label>
+                          <input
+                            type="text"
+                            value={answers[11 + subIndex] || ''}
+                            onChange={(e) => handleAnswerInput(11 + subIndex, e.target.value, 10, e.target)}
+                            className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="답"
+                            maxLength={10}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : selectedSubject === '기타' ? (
+                // 기타: 객관식 + 주관식 혼합
+                <>
+                  {/* 객관식 */}
+                  {parseInt(customMultipleChoice) > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">객관식 (1-{customMultipleChoice}번)</h4>
+                      {Array.from({ length: Math.ceil(parseInt(customMultipleChoice) / 5) }, (_, groupIndex) => {
+                        const startNum = groupIndex * 5 + 1;
+                        const endNum = Math.min(startNum + 4, parseInt(customMultipleChoice));
+                        const questionCount = endNum - startNum + 1;
+
+                        return (
+                          <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                            <div className="text-sm text-neutral-600">
+                              {startNum}-{endNum}번
+                            </div>
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                value={answers[groupIndex] || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value.toUpperCase();
+                                  // 문항 수 제한
+                                  if (value.length <= questionCount) {
+                                    handleAnswerInput(groupIndex, value, questionCount, e.target);
+                                  }
+                                }}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                placeholder={`예: ${'12345'.substring(0, questionCount)}`}
+                                maxLength={questionCount}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* 주관식 */}
+                  {parseInt(customSubjective) > 0 && (
+                    <div className={`space-y-3 ${parseInt(customMultipleChoice) > 0 ? 'border-t pt-4' : ''}`}>
+                      <h4 className="font-medium text-sm">
+                        주관식 ({parseInt(customMultipleChoice) + 1}-{getQuestionCount()}번)
+                      </h4>
+                      <div className="grid grid-cols-4 gap-3">
+                        {Array.from({ length: parseInt(customSubjective) }, (_, subIndex) => {
+                          const questionNum = parseInt(customMultipleChoice) + subIndex + 1;
+                          const answerIndex = Math.ceil(parseInt(customMultipleChoice) / 5) + subIndex;
+
+                          return (
+                            <div key={subIndex} className="space-y-1">
+                              <label className="text-xs text-neutral-600">{questionNum}번</label>
+                              <input
+                                type="text"
+                                value={answers[answerIndex] || ''}
+                                onChange={(e) => handleAnswerInput(answerIndex, e.target.value, 10, e.target)}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="답"
+                                maxLength={10}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 문항 수 미설정 시 안내 */}
+                  {!customQuestionCount && (
+                    <div className="text-center py-8 text-neutral-500">
+                      총 문항 수를 먼저 입력해주세요
+                    </div>
+                  )}
+                </>
+              ) : (
+                // 국어/영어/탐구: 객관식만
+                <div className="space-y-3">
+                  {Array.from({ length: Math.ceil(getQuestionCount() / 5) }, (_, groupIndex) => {
+                    const startNum = groupIndex * 5 + 1;
+                    const endNum = Math.min(startNum + 4, getQuestionCount());
+                    const questionCount = endNum - startNum + 1;
+
+                    return (
+                      <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                        <div className="text-sm text-neutral-600">
+                          {startNum}-{endNum}번
+                        </div>
+                        <div className="col-span-5">
+                          <input
+                            type="text"
+                            value={answers[groupIndex] || ''}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase();
+                              // 문항 수 제한
+                              if (value.length <= questionCount) {
+                                handleAnswerInput(groupIndex, value, questionCount, e.target);
+                              }
+                            }}
+                            className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                            placeholder={`예: ${'12345'.substring(0, questionCount)}`}
+                            maxLength={questionCount}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+                </div>
+              ) : (
+                // 2단계: 배점 입력
+                <div className="space-y-4">
+                  <div className="text-center py-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-700 font-medium">2단계: 배점을 입력해주세요</p>
+                    <p className="text-xs text-green-600 mt-1">정수만 입력 가능하며, 5개 단위로 연속 입력하세요 (예: 22322)</p>
+                  </div>
+                  
+                  {selectedSubject === '수학' ? (
+                    // 수학 배점 입력
+                    <>
+                      {/* 공통 객관식 배점 */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">공통 객관식 배점 (1-15번)</h4>
+                        {[0, 1, 2].map((groupIndex) => (
+                          <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                            <div className="text-sm text-neutral-600">
+                              {groupIndex * 5 + 1}-{groupIndex * 5 + 5}번
+                            </div>
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                value={scores[groupIndex] || ''}
+                                onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                placeholder="예: 22322"
+                                maxLength={5}
+                              />
+                              <div className="text-xs text-gray-500 mt-1">
+                                5개 문항의 배점을 연속으로 입력하세요 (예: 22322)
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 공통 주관식 배점 */}
+                      <div className="border-t pt-4 space-y-3">
+                        <h4 className="font-medium text-sm">공통 주관식 배점 (16-22번)</h4>
+                        <div className="grid grid-cols-4 gap-3">
+                          {[0, 1, 2, 3, 4, 5, 6].map((subIndex) => (
+                            <div key={subIndex} className="space-y-1">
+                              <label className="text-xs text-neutral-600">{16 + subIndex}번</label>
+                              <input
+                                type="text"
+                                value={scores[3 + subIndex] || ''}
+                                onChange={(e) => handleScoreInput(3 + subIndex, e.target.value, e.target)}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                placeholder="배점"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 선택 객관식 배점 */}
+                      <div className="border-t pt-4 space-y-3">
+                        <h4 className="font-medium text-sm">선택 객관식 배점 (23-28번)</h4>
+                        <div className="grid grid-cols-6 gap-2 items-center">
+                          <div className="text-sm text-neutral-600">23-28번</div>
+                          <div className="col-span-5">
+                            <input
+                              type="text"
+                              value={scores[10] || ''}
+                              onChange={(e) => handleScoreInput(10, e.target.value, e.target)}
+                              className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                              placeholder="예: 223322"
+                              maxLength={6}
+                            />
+                            <div className="text-xs text-gray-500 mt-1">
+                              6개 문항의 배점을 연속으로 입력하세요 (예: 223322)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 선택 주관식 배점 */}
+                      <div className="border-t pt-4 space-y-3">
+                        <h4 className="font-medium text-sm">선택 주관식 배점 (29-30번)</h4>
+                        <div className="grid grid-cols-4 gap-3">
+                          {[0, 1].map((subIndex) => (
+                            <div key={subIndex} className="space-y-1">
+                              <label className="text-xs text-neutral-600">{29 + subIndex}번</label>
+                              <input
+                                type="text"
+                                value={scores[11 + subIndex] || ''}
+                                onChange={(e) => handleScoreInput(11 + subIndex, e.target.value, e.target)}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                placeholder="배점"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : selectedSubject === '기타' ? (
+                    // 기타 배점 입력
+                    <>
+                      {/* 객관식 배점 */}
+                      {parseInt(customMultipleChoice) > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">객관식 배점 (1-{customMultipleChoice}번)</h4>
+                          {Array.from({ length: Math.ceil(parseInt(customMultipleChoice) / 5) }, (_, groupIndex) => {
+                            const startNum = groupIndex * 5 + 1;
+                            const endNum = Math.min(startNum + 4, parseInt(customMultipleChoice));
+                            const questionCount = endNum - startNum + 1;
+
+                            return (
+                              <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                                <div className="text-sm text-neutral-600">
+                                  {startNum}-{endNum}번
+                                </div>
+                                <div className="col-span-5">
+                                  <input
+                                    type="text"
+                                    value={scores[groupIndex] || ''}
+                                    onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
+                                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                    placeholder={`예: ${'22322'.substring(0, questionCount)}`}
+                                    maxLength={questionCount}
+                                  />
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {questionCount}개 문항의 배점을 연속으로 입력하세요
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* 주관식 배점 */}
+                      {parseInt(customSubjective) > 0 && (
+                        <div className={`space-y-3 ${parseInt(customMultipleChoice) > 0 ? 'border-t pt-4' : ''}`}>
+                          <h4 className="font-medium text-sm">
+                            주관식 배점 ({parseInt(customMultipleChoice) + 1}-{getQuestionCount()}번)
+                          </h4>
+                          <div className="grid grid-cols-4 gap-3">
+                            {Array.from({ length: parseInt(customSubjective) }, (_, subIndex) => {
+                              const questionNum = parseInt(customMultipleChoice) + subIndex + 1;
+                              const answerIndex = Math.ceil(parseInt(customMultipleChoice) / 5) + subIndex;
+
+                              return (
+                                <div key={subIndex} className="space-y-1">
+                                  <label className="text-xs text-neutral-600">{questionNum}번</label>
+                                  <input
+                                    type="text"
+                                    value={scores[answerIndex] || ''}
+                                    onChange={(e) => handleScoreInput(answerIndex, e.target.value, e.target)}
+                                    className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                    placeholder="배점"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // 국어/영어/탐구 배점 입력
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">객관식 배점 (1-{getQuestionCount()}번)</h4>
+                      {Array.from({ length: Math.ceil(getQuestionCount() / 5) }, (_, groupIndex) => {
+                        const startNum = groupIndex * 5 + 1;
+                        const endNum = Math.min(startNum + 4, getQuestionCount());
+                        const questionCount = endNum - startNum + 1;
+
+                        return (
+                          <div key={groupIndex} className="grid grid-cols-6 gap-2 items-center">
+                            <div className="text-sm text-neutral-600">
+                              {startNum}-{endNum}번
+                            </div>
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                value={scores[groupIndex] || ''}
+                                onChange={(e) => handleScoreInput(groupIndex, e.target.value, e.target)}
+                                className="w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                                placeholder={`예: ${'22322'.substring(0, questionCount)}`}
+                                maxLength={questionCount}
+                              />
+                              <div className="text-xs text-gray-500 mt-1">
+                                {questionCount}개 문항의 배점을 연속으로 입력하세요
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-500">
-              아직 채점 결과가 없습니다. 좌측에서 PDF를 업로드하고 채점을 실행하세요.
-            </div>
-          )}
-          {gradeLog && (
-            <div className="rounded-xl bg-neutral-900 px-3 py-3 text-xs text-green-400">
-              <pre className="whitespace-pre-wrap break-words">{gradeLog}</pre>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* 정답 입력 모달 (AnswerEditor.tsx) */}
-      {isAnswerModalOpen && (
-        <AnswerEditor
-          open={isAnswerModalOpen}
-          onClose={() => setIsAnswerModalOpen(false)}
-          layout={layout}
-          sessionId={sessionId}
-          fileName={fileName}
-          onAnswerFileNameChange={setAnswerFileName}
-          subjectPreset={{
-            subject: selectedSubject,
-            subjectCategory: selectedSubjectCategory || selectedSocialCategory || selectedScienceCategory || selectedHistoryCategory || '',
-            customQuestionCount: customQuestionCount ? Number(customQuestionCount) : null,
-            customMultipleChoice: customMultipleChoice ? Number(customMultipleChoice) : null,
-            customSubjective: customSubjective ? Number(customSubjective) : null,
-          }}
-          examMetadata={examMetadataForApi}
-        />
+            <div className="p-6 border-t flex justify-end gap-2">
+              <button
+                onClick={() => setIsAnswerModalOpen(false)}
+                className="px-4 py-2 rounded-xl border hover:bg-neutral-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAnswerSave}
+                className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
+              >
+                {answerModalTab === 'answers' ? '다음: 배점 입력' : '저장 완료'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-      {/* 기존 정답 찾기 모달 (기존 LoadLayoutButton.tsx)*/}
+
+      {/* 기존 정답 찾기 모달 */}
       {isFindAnswerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <div className="bg-white rounded-2xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1112,7 +1323,7 @@ export default function SNarOCRUpload() {
         </div>
       )}
 
-      {/* 채점 구간 설정 모달 (기존 LayoutCanvas.tsx, BlockSidebar.tsx) */}
+      {/* 채점 구간 설정 모달 */}
       {isGradingRangeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <div className="bg-white rounded-2xl shadow-lg max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
@@ -1120,58 +1331,40 @@ export default function SNarOCRUpload() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">채점 구간 설정</h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={saveLayoutToFile}
-                    className="rounded-lg border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={!layout.blocks?.length}
-                  >
-                    레이아웃 저장(JSON)
-                  </button>
-                  <button
-                    onClick={() => setIsGradingRangeModalOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button 
+                  onClick={() => setIsGradingRangeModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-                <div>
-                  파일: <span className="font-medium">{fileName ? `${fileName}.pdf` : '업로드된 파일 없음'}</span>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="text-sm text-neutral-600">
+                  파일: <span className="font-medium">2025학년도_9월_모의고사_국어.pdf</span>
                 </div>
-                <div>
-                  세션: <span className="font-medium">{sessionId ?? '-'}</span>
+                <div className="text-sm text-neutral-600">
+                  총 페이지: <span className="font-medium">156페이지</span>
+                </div>
+                <div className="text-sm text-neutral-600">
+                  현재: <span className="font-medium text-blue-600">1/156</span>
                 </div>
               </div>
             </div>
 
             {/* 메인 콘텐츠 영역 */}
             <div className="flex-1 flex">
-              {/* 왼쪽: 업로드된 시험지 (기존 Layoutcanvas)*/}
+              {/* 왼쪽: 업로드된 시험지 */}
               <div className="flex-1 p-6">
-                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50">
-                  {previewUrl ? (
-                    <LayoutCanvas
-                      imageUrl={previewUrl}
-                      layout={layout}
-                      onChange={setLayout}
-                      selected={selectedBlockIndex}
-                      onSelect={setSelectedBlockIndex}
-                      hideControls
-                      className="w-full"
-                      canvasClassName="w-full h-auto rounded-lg border border-neutral-200 bg-white"
-                    />
-                  ) : (
-                    <div className="text-center text-sm text-gray-500">
-                      <div className="mb-2 text-3xl">📄</div>
-                      PDF를 업로드하면 미리보기가 표시됩니다.
-                    </div>
-                  )}
+                <div className="h-full border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-gray-400 mb-2">📄</div>
+                    <div className="text-sm text-gray-600">PDF/PNG 파일 미리보기</div>
+                    <div className="text-xs text-gray-500 mt-1">백엔드 연동 시 실제 파일 표시</div>
+                  </div>
                 </div>
               </div>
 
-              {/* 오른쪽: 페이지 네비게이션 및 블록 목록 (기존 구현된 바 없음) */}
+              {/* 오른쪽: 페이지 네비게이션 및 블록 목록 */}
               <div className="w-96 p-6 border-l">
                 <div className="space-y-4">
                   {/* 페이지 네비게이션 */}
@@ -1186,7 +1379,7 @@ export default function SNarOCRUpload() {
                         value="1" 
                         className="w-16 px-2 py-1 text-sm border rounded text-center"
                         min="1"
-                        max="(구현예정)"
+                        max="156"
                       />
                       <span className="text-sm text-gray-500">/ 156</span>
                       <button className="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50">
@@ -1195,48 +1388,15 @@ export default function SNarOCRUpload() {
                     </div>
                   </div>
 
-                  {/* 템플릿 선택 (LoadLayoutButton.tsx 참고) */}
+                  {/* 템플릿 선택 */}
                   <div>
                     <h4 className="font-medium text-sm mb-2">템플릿 선택</h4>
                     <div className="space-y-2">
                       <div className="relative">
-                        <button
-                          onClick={() => setIsTemplateDropdownOpen((prev) => !prev)}
-                          className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
-                        >
-                          <span>
-                            {templateName
-                              ? templateName.replace(/\.json$/, '')
-                              : '템플릿을 선택하세요'}
-                          </span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition ${
-                              isTemplateDropdownOpen ? 'rotate-180' : ''
-                            }`}
-                          />
+                        <button className="w-full rounded-lg border px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-gray-50">
+                          <span>템플릿을 선택하세요</span>
+                          <ChevronDown className="w-4 h-4" />
                         </button>
-                        {isTemplateDropdownOpen && (
-                          <div className="absolute left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border bg-white shadow-lg">
-                            {templateOptions.length === 0 ? (
-                              <div className="px-3 py-2 text-sm text-neutral-500">
-                                사용 가능한 템플릿이 없습니다.
-                              </div>
-                            ) : (
-                              templateOptions.map((option) => (
-                                <button
-                                  key={option.value}
-                                  className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-neutral-50"
-                                  onClick={() => handleTemplateLoad(option.value)}
-                                >
-                                  <span>{option.label}</span>
-                                  {templateName === option.value && (
-                                    <span className="text-xs text-blue-600">선택됨</span>
-                                  )}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
                       </div>
                       <div className="text-xs text-gray-500">
                         미리 정의된 템플릿을 사용하여 빠르게 설정할 수 있습니다
@@ -1244,25 +1404,122 @@ export default function SNarOCRUpload() {
                     </div>
                   </div>
 
-                  {/* 블록 목록 (BlockSidebar.tsx)*/}
+                  {/* 블록 목록 */}
                   <div>
-                    <BlockSidebar
-                      layout={layout}
-                      onChange={setLayout}
-                      selected={selectedBlockIndex}
-                      setSelected={setSelectedBlockIndex}
-                      className="space-y-4"
-                    />
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-sm">블록 목록</h4>
+                      <button 
+                        onClick={handleAddBlock}
+                        className="px-3 py-1 text-sm rounded-lg border bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        블록 추가
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {blocks.map((block, index) => (
+                        <div key={block.id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{block.id}</span>
+                              {index < 3 && (
+                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                  기본 정보
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleDuplicateBlock(block.id)}
+                                className="text-blue-600 hover:text-blue-800 text-sm"
+                                title="복제"
+                              >
+                                복제
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveBlock(block.id)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                                title="삭제"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {/* 타입 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">타입</label>
+                              <input
+                                type="text"
+                                value={block.type}
+                                onChange={(e) => handleUpdateBlock(block.id, 'type', e.target.value)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: text, checkbox, radio"
+                              />
+                            </div>
+                            
+                            {/* 데이터 형식 토글 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">데이터 형식</label>
+                              <div className="flex flex-wrap gap-1">
+                                {['grid', 'digits', 'id', 'phone', 'name', 'code'].map((format) => (
+                                  <button
+                                    key={format}
+                                    onClick={() => handleUpdateBlock(block.id, 'dataFormat', format as Block['dataFormat'])}
+                                    className={`px-2 py-1 text-xs rounded border ${
+                                      block.dataFormat === format 
+                                        ? 'bg-blue-600 text-white border-blue-600' 
+                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    {format}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* 선택지(열) 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">선택지(열)</label>
+                              <input
+                                type="number"
+                                value={block.choices || ''}
+                                onChange={(e) => handleUpdateBlock(block.id, 'choices', parseInt(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: 5"
+                                min="1"
+                                max="20"
+                              />
+                            </div>
+                            
+                            {/* 행 입력 */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">행</label>
+                              <input
+                                type="number"
+                                value={block.rows || ''}
+                                onChange={(e) => handleUpdateBlock(block.id, 'rows', parseInt(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                                placeholder="예: 1"
+                                min="1"
+                                max="50"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 하단: 채점 시작 버튼 (GradeRunner.tsx 참고)*/}
+            {/* 하단: 채점 시작 버튼 */}
             <div className="p-6 border-t bg-gray-50">
               <div className="flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  총 {layout.blocks?.length ?? 0}개 블록 선택됨
+                  총 {blocks.length}개 블록 선택됨
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -1271,12 +1528,15 @@ export default function SNarOCRUpload() {
                   >
                     취소
                   </button>
-                  <button
-                    onClick={() => void handleStartGrading()}
-                    className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isGrading || !sessionId}
+                  <button 
+                    onClick={() => {
+                      // 채점 시작 로직
+                      setIsGradingRangeModalOpen(false);
+                      navigateTo('results');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-black text-white hover:bg-neutral-800"
                   >
-                    {isGrading ? '채점중…' : '채점 시작'}
+                    채점 시작
                   </button>
                 </div>
               </div>

@@ -25,3 +25,24 @@ body {
 * {
   border-color: #f5f5f5;
 }
+
+/* 전역 label 스타일: 텍스트 색상과 크기/굵기 지정 */
+@layer base {
+
+  /* 모든 기본 색상을 어두운 회색으로 설정 */
+  h2, h4, button, label, div {
+    @apply text-neutral-700;
+  }
+
+  
+  input {
+    @apply text-neutral-500;
+  }
+
+  /* text-sm + font-semibold 조합을 어두운 회색으로 통일 */
+  .text-sm.font-semibold,
+  .font-semibold.text-sm,
+  .text-lg.font-semibold {
+    @apply text-neutral-700;
+  }
+}
