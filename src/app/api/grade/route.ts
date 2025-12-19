@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Increase timeout to 10 minutes for grading operations
-export const maxDuration = 600; // 10 minutes in seconds
+export const maxDuration = 60; // 1 minute in seconds
 
 const API_BASE = process.env.API_PROXY_TARGET ||
   process.env.NEXT_PUBLIC_API_ORIGIN ||
