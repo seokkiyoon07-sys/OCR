@@ -1,7 +1,7 @@
 'use client';
 
 import { useSNarOCRNavigation } from '@/hooks/useSNarOCRNavigation';
-import { Home, Upload, BarChart3, CreditCard, HelpCircle, User } from 'lucide-react';
+import { Home, Upload, BarChart3, CreditCard, HelpCircle, User, Users, ClipboardList } from 'lucide-react';
 import AuthControls from '@/components/auth/AuthControls';
 
 interface SNarOCRLayoutProps {
@@ -70,7 +70,7 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
               <Upload size={16} />
               채점 업로드
             </button>
-            <button
+                        <button
               className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${
                 currentPage === 'results' ? 'bg-black text-white' : 'hover:bg-neutral-100'
               }`}
@@ -86,7 +86,7 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
               onClick={() => handleGoto('individual-results')}
             >
               <User size={16} />
-              개인별 채점 결과
+              성적표 발급
             </button>
             <button
               className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${
@@ -105,6 +105,29 @@ export default function SNarOCRLayout({ children, currentPage = 'landing' }: SNa
             >
               <HelpCircle size={16} />
               FAQ
+            </button>
+
+            {/* 관리자 메뉴 구분선 */}
+            <div className="my-3 border-t border-neutral-200"></div>
+            <div className="px-3 py-1 text-xs font-medium text-neutral-400 uppercase">관리자</div>
+
+            <button
+              className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${
+                currentPage === 'admin-students' ? 'bg-black text-white' : 'hover:bg-neutral-100'
+              }`}
+              onClick={() => handleGoto('admin-students')}
+            >
+              <Users size={16} />
+              학생 관리
+            </button>
+            <button
+              className={`w-full px-3 py-2 text-left text-sm rounded-lg flex items-center gap-2 ${
+                currentPage === 'admin-exams' ? 'bg-black text-white' : 'hover:bg-neutral-100'
+              }`}
+              onClick={() => handleGoto('admin-exams')}
+            >
+              <ClipboardList size={16} />
+              시험 관리
             </button>
           </nav>
         </aside>

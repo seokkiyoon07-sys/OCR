@@ -25,6 +25,15 @@ export const useSNarOCRNavigation = () => {
       case 'faq':
         router.push('/faq');
         break;
+      case 'answer-upload':
+        router.push('/answer-upload');
+        break;
+      case 'admin-students':
+        router.push('/admin-students');
+        break;
+      case 'admin-exams':
+        router.push('/admin-exams');
+        break;
       default:
         router.push('/');
     }
