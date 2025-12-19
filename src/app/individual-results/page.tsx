@@ -377,6 +377,11 @@ export default function SNarOCRIndividualResults() {
   const [showPrevExam, setShowPrevExam] = useState(false);
   const [selectedPrevExam, setSelectedPrevExam] = useState('');
 
+  // 일반시험 탭 상태
+  const [generalExamSubject, setGeneralExamSubject] = useState('전체');
+  const [selectedGeneralExam, setSelectedGeneralExam] = useState<string | null>(null);
+  const [isWrongCollectionOpen, setIsWrongCollectionOpen] = useState(false);
+
   // 이전 시험 목록 (비교용)
   const previousExams = [
     { id: '6월', name: '6월 모의고사', scores: { 국어: 78, 수학: 82, 영어: 90, 탐구1: 42, 탐구2: 38, 한국사: 45 } },
@@ -408,6 +413,175 @@ export default function SNarOCRIndividualResults() {
     '국어반': ['장하윤', '백승현', '고은채'],
     '영어반': ['남지우', '이도윤', '김하람'],
   };
+
+  // 일반시험 데이터 (단과 시험, 학원 자체 시험 등) - 수학, 영어만
+  // round: 회차 (같은 과목 내에서 시험 순서)
+  const generalExams = [
+    {
+      id: 'ge1',
+      name: '12월 주간 수학 테스트',
+      subject: '수학',
+      date: '2024-12-15',
+      score: 92,
+      totalScore: 100,
+      rank: 2,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 2,
+      round: 6,
+    },
+    {
+      id: 'ge2',
+      name: '12월 영어 듣기 평가',
+      subject: '영어',
+      date: '2024-12-12',
+      score: 88,
+      totalScore: 100,
+      rank: 3,
+      totalStudents: 25,
+      questions: 30,
+      wrongCount: 3,
+      round: 6,
+    },
+    {
+      id: 'ge3',
+      name: '11월 영어 독해 테스트',
+      subject: '영어',
+      date: '2024-11-28',
+      score: 78,
+      totalScore: 100,
+      rank: 5,
+      totalStudents: 25,
+      questions: 25,
+      wrongCount: 5,
+      round: 5,
+    },
+    {
+      id: 'ge4',
+      name: '11월 주간 수학 테스트',
+      subject: '수학',
+      date: '2024-11-20',
+      score: 75,
+      totalScore: 100,
+      rank: 8,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 5,
+      round: 5,
+    },
+    {
+      id: 'ge5',
+      name: '10월 수학 단원평가',
+      subject: '수학',
+      date: '2024-10-25',
+      score: 68,
+      totalScore: 100,
+      rank: 12,
+      totalStudents: 25,
+      questions: 15,
+      wrongCount: 5,
+      round: 4,
+    },
+    {
+      id: 'ge6',
+      name: '10월 영어 어휘 테스트',
+      subject: '영어',
+      date: '2024-10-20',
+      score: 82,
+      totalScore: 100,
+      rank: 6,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 4,
+      round: 4,
+    },
+    {
+      id: 'ge7',
+      name: '9월 수학 테스트',
+      subject: '수학',
+      date: '2024-09-18',
+      score: 58,
+      totalScore: 100,
+      rank: 15,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 8,
+      round: 3,
+    },
+    {
+      id: 'ge8',
+      name: '9월 영어 듣기 평가',
+      subject: '영어',
+      date: '2024-09-15',
+      score: 72,
+      totalScore: 100,
+      rank: 8,
+      totalStudents: 25,
+      questions: 25,
+      wrongCount: 7,
+      round: 3,
+    },
+    {
+      id: 'ge9',
+      name: '8월 수학 테스트',
+      subject: '수학',
+      date: '2024-08-20',
+      score: 62,
+      totalScore: 100,
+      rank: 14,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 8,
+      round: 2,
+    },
+    {
+      id: 'ge10',
+      name: '8월 영어 독해 테스트',
+      subject: '영어',
+      date: '2024-08-18',
+      score: 65,
+      totalScore: 100,
+      rank: 10,
+      totalStudents: 25,
+      questions: 25,
+      wrongCount: 9,
+      round: 2,
+    },
+    {
+      id: 'ge11',
+      name: '7월 수학 테스트',
+      subject: '수학',
+      date: '2024-07-15',
+      score: 55,
+      totalScore: 100,
+      rank: 18,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 9,
+      round: 1,
+    },
+    {
+      id: 'ge12',
+      name: '7월 영어 어휘 테스트',
+      subject: '영어',
+      date: '2024-07-12',
+      score: 60,
+      totalScore: 100,
+      rank: 12,
+      totalStudents: 25,
+      questions: 20,
+      wrongCount: 8,
+      round: 1,
+    },
+  ];
+
+  // 일반시험 과목 목록
+  const generalExamSubjects = ['전체', ...Array.from(new Set(generalExams.map(e => e.subject)))];
+
+  // 필터링된 일반시험 목록
+  const filteredGeneralExams = generalExamSubject === '전체'
+    ? generalExams
+    : generalExams.filter(e => e.subject === generalExamSubject);
 
   // 학원 변경 시 반, 학생 초기화
   const handleAcademyChange = (academy: string) => {
@@ -1556,17 +1730,673 @@ export default function SNarOCRIndividualResults() {
           </div>
           </>
           ) : (
-            /* 일반시험 탭 - 준비 중 */
-            <div className="mt-6 p-12 text-center bg-neutral-50 rounded-xl border border-neutral-200">
-              <div className="text-neutral-400 mb-2">
-                <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                </svg>
+            /* 일반시험 탭 */
+            <>
+            {/* 학원, 반, 학생 선택 */}
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {/* 학원 선택 */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">학원</label>
+                <select
+                  value={selectedAcademy}
+                  onChange={(e) => handleAcademyChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {academies.map((academy) => (
+                    <option key={academy} value={academy}>{academy}</option>
+                  ))}
+                </select>
               </div>
-              <h3 className="text-lg font-medium text-neutral-700 mb-1">일반시험 결과</h3>
-              <p className="text-sm text-neutral-500">단과 시험, 학원 자체 시험 등의 결과를 확인할 수 있습니다.</p>
-              <p className="text-xs text-neutral-400 mt-2">아직 등록된 일반시험이 없습니다.</p>
+
+              {/* 반 선택 */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">반</label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => handleClassChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {(classesByAcademy[selectedAcademy] || []).map((className) => (
+                    <option key={className} value={className}>{className}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 학생 선택 */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">학생</label>
+                <select
+                  value={selectedStudent}
+                  onChange={(e) => setSelectedStudent(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {(studentsByClass[selectedClass] || []).map((student) => (
+                    <option key={student} value={student}>{student}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* 시험 선택 (과목 필터 + 목록) */}
+            <div className="mt-6 rounded-2xl border bg-white">
+              <div className="p-4 border-b">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold">일반시험 선택</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-neutral-500">과목:</span>
+                    <div className="flex gap-1">
+                      {generalExamSubjects.map(subject => (
+                        <button
+                          key={subject}
+                          onClick={() => setGeneralExamSubject(subject)}
+                          className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                            generalExamSubject === subject
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                          }`}
+                        >
+                          {subject}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4">
+                {filteredGeneralExams.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {filteredGeneralExams.map(exam => (
+                      <button
+                        key={exam.id}
+                        onClick={() => setSelectedGeneralExam(exam.id)}
+                        className={`px-4 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2 ${
+                          selectedGeneralExam === exam.id
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          selectedGeneralExam === exam.id
+                            ? 'bg-blue-500 text-blue-100'
+                            : 'bg-neutral-200 text-neutral-600'
+                        }`}>
+                          {exam.subject}
+                        </span>
+                        <span className="font-medium">{exam.name}</span>
+                        <span className="text-xs opacity-75">{exam.score}점</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-neutral-500">
+                    선택한 과목의 일반시험이 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 회차별 성적 추이 차트 */}
+            {(() => {
+              // 과목별로 필터링된 시험 데이터를 회차순으로 정렬
+              const chartSubject = generalExamSubject === '전체' ? '수학' : generalExamSubject;
+              const subjectExams = generalExams
+                .filter(e => e.subject === chartSubject)
+                .sort((a, b) => a.round - b.round);
+
+              const subjectColors: { [key: string]: string } = {
+                '수학': '#3b82f6',
+                '영어': '#10b981',
+              };
+
+              return (
+                <div className="mt-6 rounded-2xl border bg-white">
+                  <div className="p-6 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">회차별 성적 추이</h3>
+                        <p className="text-sm text-neutral-600 mt-1">시험 회차에 따른 성적 변화를 확인하세요</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-neutral-600">과목:</span>
+                        <div className="flex gap-1">
+                          {['수학', '영어'].map(subject => (
+                            <button
+                              key={subject}
+                              onClick={() => setGeneralExamSubject(subject)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                                (generalExamSubject === '전체' ? '수학' : generalExamSubject) === subject
+                                  ? 'bg-neutral-900 text-white'
+                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                              }`}
+                            >
+                              {subject}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    {/* 막대 그래프 */}
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[400px]">
+                        {/* Y축 라벨 + 차트 영역 */}
+                        <div className="flex">
+                          {/* Y축 라벨 */}
+                          <div className="w-10 flex flex-col justify-between text-right pr-2" style={{ height: '200px' }}>
+                            {[100, 75, 50, 25, 0].map(value => (
+                              <span key={value} className="text-xs text-neutral-400 leading-none">{value}</span>
+                            ))}
+                          </div>
+
+                          {/* 차트 영역 */}
+                          <div className="flex-1">
+                            <div className="relative border-l border-b border-neutral-200" style={{ height: '200px' }}>
+                              {/* 가로 그리드 라인 */}
+                              {[0.25, 0.5, 0.75, 1].map(ratio => (
+                                <div
+                                  key={ratio}
+                                  className="absolute left-0 right-0 border-t border-neutral-100"
+                                  style={{ bottom: `${ratio * 100}%` }}
+                                />
+                              ))}
+
+                              {/* 막대 그룹 */}
+                              <div className="absolute inset-0 flex items-end justify-around px-4">
+                                {subjectExams.map((exam, idx) => {
+                                  const heightPercent = (exam.score / 100) * 100;
+                                  const isSelected = selectedGeneralExam === exam.id;
+
+                                  return (
+                                    <div
+                                      key={exam.id}
+                                      className="flex flex-col items-center flex-1 max-w-16 cursor-pointer"
+                                      onClick={() => setSelectedGeneralExam(exam.id)}
+                                    >
+                                      <div className="relative group w-full flex justify-center">
+                                        {/* 막대 */}
+                                        <div
+                                          className={`w-10 rounded-t transition-all duration-300 ${isSelected ? 'ring-2 ring-offset-1 ring-blue-400' : 'hover:opacity-80'}`}
+                                          style={{
+                                            height: `${heightPercent * 2}px`,
+                                            backgroundColor: subjectColors[chartSubject],
+                                            opacity: isSelected ? 1 : 0.7,
+                                          }}
+                                        />
+                                        {/* 점수 표시 */}
+                                        <div className={`absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-semibold ${isSelected ? 'text-blue-600' : 'text-neutral-500'}`}>
+                                          {exam.score}
+                                        </div>
+                                        {/* 툴팁 */}
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-8 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                          {exam.name}: {exam.score}점
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* X축 라벨 - 회차 */}
+                            <div className="flex justify-around pt-2">
+                              {subjectExams.map((exam) => (
+                                <div key={exam.id} className="text-center flex-1 px-1">
+                                  <div className={`text-sm font-medium ${selectedGeneralExam === exam.id ? 'text-blue-600' : 'text-neutral-700'}`}>
+                                    {exam.round}회차
+                                  </div>
+                                  <div className="text-[10px] text-neutral-400 truncate">
+                                    {exam.date.slice(5, 7)}월
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 범례 및 추이 분석 */}
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: subjectColors[chartSubject] }}
+                        />
+                        <span className="text-sm text-neutral-600">{chartSubject}</span>
+                        <span className="text-xs text-neutral-400">(100점 만점)</span>
+                      </div>
+                      {subjectExams.length >= 2 && (() => {
+                        const firstScore = subjectExams[0].score;
+                        const lastScore = subjectExams[subjectExams.length - 1].score;
+                        const diff = lastScore - firstScore;
+                        const isImproved = diff > 0;
+                        return (
+                          <div className={`flex items-center gap-1 text-sm ${isImproved ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-neutral-500'}`}>
+                            {isImproved ? (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                              </svg>
+                            ) : diff < 0 ? (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                              </svg>
+                            ) : null}
+                            <span>
+                              {isImproved ? `+${diff}점 상승` : diff < 0 ? `${diff}점 하락` : '변화 없음'}
+                            </span>
+                            <span className="text-xs text-neutral-400">
+                              (1회차 → {subjectExams.length}회차)
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 선택된 시험 상세 정보 */}
+            {selectedGeneralExam && (() => {
+              const exam = generalExams.find(e => e.id === selectedGeneralExam);
+              if (!exam) return null;
+
+              // Mock 오답 데이터
+              const wrongQuestions = Array.from({ length: exam.wrongCount }, (_, i) => {
+                const q = Math.floor(Math.random() * exam.questions) + 1;
+                return q;
+              }).filter((v, i, a) => a.indexOf(v) === i).slice(0, exam.wrongCount);
+
+              const wrongDetails = wrongQuestions.map(q => ({
+                question: q,
+                type: ['개념 이해', '계산 실수', '문제 해석', '시간 부족'][Math.floor(Math.random() * 4)],
+                detail: ['기본 개념 복습 필요', '계산 과정 재확인', '문제 조건 꼼꼼히 확인', '시간 배분 연습 필요'][Math.floor(Math.random() * 4)]
+              }));
+
+              return (
+                <>
+                  {/* 시험 요약 정보 */}
+                  <div className="mt-6 rounded-2xl border bg-white p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">{exam.name}</h3>
+                        <p className="text-sm text-neutral-500">{exam.date} · {exam.subject} · {exam.questions}문제</p>
+                      </div>
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold ${
+                        exam.score >= 90 ? 'bg-blue-500' :
+                        exam.score >= 80 ? 'bg-emerald-500' :
+                        exam.score >= 70 ? 'bg-amber-500' :
+                        'bg-red-500'
+                      }`}>
+                        {exam.score >= 90 ? 'A' :
+                         exam.score >= 80 ? 'B' :
+                         exam.score >= 70 ? 'C' : 'D'}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+                        <div className="text-3xl font-bold text-neutral-900">{exam.score}<span className="text-lg text-neutral-400">/{exam.totalScore}</span></div>
+                        <div className="text-sm text-neutral-500">점수</div>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+                        <div className="text-3xl font-bold text-neutral-900">{exam.rank}<span className="text-lg text-neutral-400">/{exam.totalStudents}</span></div>
+                        <div className="text-sm text-neutral-500">등수</div>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+                        <div className="text-3xl font-bold text-red-600">{exam.wrongCount}</div>
+                        <div className="text-sm text-neutral-500">오답</div>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+                        <div className="text-3xl font-bold text-blue-600">{Math.round((exam.questions - exam.wrongCount) / exam.questions * 100)}%</div>
+                        <div className="text-sm text-neutral-500">정답률</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 과목별 상세 분석 */}
+                  <div className="mt-6 rounded-2xl border bg-white">
+                    <div className="p-6 border-b">
+                      <h3 className="text-lg font-semibold">상세 분석</h3>
+                      <p className="text-sm text-neutral-600 mt-1">{exam.name}의 상세한 채점 결과를 확인하세요</p>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-6">
+                        {/* 틀린 문항 목록 */}
+                        <div className="rounded-lg border border-neutral-200 p-4">
+                          <div className="text-sm text-neutral-500 mb-2">틀린 문항:</div>
+                          <div className="text-base font-medium text-red-600">
+                            {wrongQuestions.length > 0 ? wrongQuestions.sort((a, b) => a - b).join(', ') : '없음'}
+                          </div>
+                        </div>
+
+                        {/* 문항별 결과 그리드 */}
+                        <div className="rounded-lg border border-neutral-200 p-4">
+                          <div className="text-sm font-medium mb-3 text-neutral-700">문항별 결과</div>
+                          <div className="grid grid-cols-10 gap-2">
+                            {Array.from({ length: exam.questions }, (_, i) => i + 1).map((num) => (
+                              <div
+                                key={num}
+                                className={`p-2 text-center text-sm rounded-lg border ${
+                                  wrongQuestions.includes(num)
+                                    ? 'bg-red-50 border-red-200 text-red-600 font-semibold'
+                                    : 'bg-neutral-50 border-neutral-200 text-neutral-500'
+                                }`}
+                              >
+                                {num}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 rounded bg-red-50 border border-red-200"></div>
+                              <span>오답</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 rounded bg-neutral-50 border border-neutral-200"></div>
+                              <span>정답</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 상세 오답 정보 */}
+                        {wrongDetails.length > 0 && (
+                          <div className="rounded-lg border border-neutral-200 p-4">
+                            <div className="text-sm font-medium mb-3 text-neutral-700">오답 상세 정보</div>
+                            <div className="space-y-2">
+                              {wrongDetails.map((detail, idx) => (
+                                <div key={idx} className="flex items-center gap-3 text-sm">
+                                  <span className="font-medium text-red-600 w-8">{detail.question}번</span>
+                                  <span className="text-neutral-500 w-20">{detail.type}</span>
+                                  <span className="text-neutral-600">{detail.detail}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 지금까지 틀린 문제 모음 (토글) */}
+                        {(() => {
+                          // 같은 과목의 모든 시험에서 틀린 문제들을 모음
+                          const allWrongProblems = generalExams
+                            .filter(e => e.subject === exam.subject)
+                            .sort((a, b) => a.round - b.round)
+                            .map(e => {
+                              // 각 시험별 mock 오답 데이터 생성 (일관성을 위해 id 기반 시드)
+                              const seed = parseInt(e.id.replace('ge', '')) || 1;
+                              const wrongNums = Array.from({ length: e.wrongCount }, (_, i) => {
+                                return ((seed * 7 + i * 3) % e.questions) + 1;
+                              }).filter((v, i, a) => a.indexOf(v) === i).slice(0, e.wrongCount).sort((a, b) => a - b);
+
+                              return {
+                                examId: e.id,
+                                examName: e.name,
+                                round: e.round,
+                                date: e.date,
+                                wrongQuestions: wrongNums,
+                                score: e.score,
+                              };
+                            });
+
+                          // 문제 번호별로 틀린 횟수 집계
+                          const problemFrequency: { [key: number]: { count: number; exams: string[] } } = {};
+                          allWrongProblems.forEach(examData => {
+                            examData.wrongQuestions.forEach(q => {
+                              if (!problemFrequency[q]) {
+                                problemFrequency[q] = { count: 0, exams: [] };
+                              }
+                              problemFrequency[q].count++;
+                              problemFrequency[q].exams.push(`${examData.round}회차`);
+                            });
+                          });
+
+                          // 2번 이상 틀린 문제 (반복 오답)
+                          const repeatedWrong = Object.entries(problemFrequency)
+                            .filter(([_, data]) => data.count >= 2)
+                            .sort((a, b) => b[1].count - a[1].count);
+
+                          // 총 오답 문제 수
+                          const totalUniqueWrong = Object.keys(problemFrequency).length;
+
+                          return (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50/50 overflow-hidden">
+                              {/* 토글 헤더 */}
+                              <button
+                                onClick={() => setIsWrongCollectionOpen(!isWrongCollectionOpen)}
+                                className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                    </svg>
+                                  </div>
+                                  <span className="text-sm font-semibold text-amber-900">지금까지 틀린 문제 모음</span>
+                                  <span className="text-xs text-amber-600">({exam.subject} 전체 {allWrongProblems.length}회 시험)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                                    총 {totalUniqueWrong}개 문제
+                                  </div>
+                                  <svg
+                                    className={`w-5 h-5 text-amber-600 transition-transform duration-200 ${isWrongCollectionOpen ? 'rotate-180' : ''}`}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </button>
+
+                              {/* 토글 콘텐츠 */}
+                              {isWrongCollectionOpen && (
+                                <div className="px-4 pb-4 space-y-4 border-t border-amber-200">
+                                  {/* 회차별 오답 현황 */}
+                                  <div className="pt-4">
+                                    <div className="text-xs font-medium text-amber-800 mb-2">회차별 오답 현황</div>
+                                    <div className="bg-white rounded-lg border border-amber-100 overflow-hidden">
+                                      <table className="w-full text-sm">
+                                        <thead>
+                                          <tr className="bg-amber-50 border-b border-amber-100">
+                                            <th className="text-left px-3 py-2 text-amber-800 font-medium">회차</th>
+                                            <th className="text-left px-3 py-2 text-amber-800 font-medium">시험명</th>
+                                            <th className="text-center px-3 py-2 text-amber-800 font-medium">점수</th>
+                                            <th className="text-left px-3 py-2 text-amber-800 font-medium">틀린 문제</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {allWrongProblems.map((examData) => (
+                                            <tr
+                                              key={examData.examId}
+                                              className={`border-b border-amber-50 ${examData.examId === exam.id ? 'bg-amber-100/50' : ''}`}
+                                            >
+                                              <td className="px-3 py-2 text-amber-900 font-medium">{examData.round}회차</td>
+                                              <td className="px-3 py-2 text-amber-800">
+                                                <div className="flex items-center gap-1">
+                                                  {examData.examName}
+                                                  {examData.examId === exam.id && (
+                                                    <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded">현재</span>
+                                                  )}
+                                                </div>
+                                                <div className="text-[10px] text-amber-500">{examData.date}</div>
+                                              </td>
+                                              <td className="px-3 py-2 text-center">
+                                                <span className={`font-semibold ${
+                                                  examData.score >= 90 ? 'text-blue-600' :
+                                                  examData.score >= 80 ? 'text-emerald-600' :
+                                                  examData.score >= 70 ? 'text-amber-600' :
+                                                  'text-red-600'
+                                                }`}>
+                                                  {examData.score}점
+                                                </span>
+                                              </td>
+                                              <td className="px-3 py-2">
+                                                <div className="flex flex-wrap gap-1">
+                                                  {examData.wrongQuestions.map(q => (
+                                                    <span
+                                                      key={q}
+                                                      className={`px-1.5 py-0.5 text-xs rounded ${
+                                                        problemFrequency[q]?.count >= 2
+                                                          ? 'bg-red-100 text-red-700 font-medium'
+                                                          : 'bg-neutral-100 text-neutral-600'
+                                                      }`}
+                                                    >
+                                                      {q}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+
+                                  {/* 요약 통계 */}
+                                  <div className="flex items-center justify-between pt-2 border-t border-amber-200">
+                                    <div className="text-xs text-amber-700">
+                                      <span className="font-medium">평균 오답:</span> {(allWrongProblems.reduce((acc, e) => acc + e.wrongQuestions.length, 0) / allWrongProblems.length).toFixed(1)}개/회
+                                    </div>
+                                    {repeatedWrong.length > 0 && (
+                                      <div className="text-xs text-red-600">
+                                        <span className="font-medium">반복 오답:</span> {repeatedWrong.length}개 문제
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* AI 오답 분석 */}
+                        {wrongDetails.length > 0 && (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                              </div>
+                              <span className="text-sm font-semibold text-blue-900">AI 오답 분석</span>
+                            </div>
+
+                            <div className="space-y-4">
+                              {/* 취약점 분석 */}
+                              <div>
+                                <div className="text-xs font-medium text-blue-800 mb-1.5">취약 영역</div>
+                                <p className="text-sm text-blue-900">
+                                  {exam.subject === '수학'
+                                    ? '미적분 영역에서 도함수 개념 적용이 미흡합니다. 특히 합성함수의 미분과 삼각함수의 미분에서 실수가 발생했습니다.'
+                                    : exam.subject === '국어'
+                                    ? '비문학 독해에서 글의 구조 파악이 부족합니다. 특히 논증 구조와 전제-결론 관계 분석에서 오류가 있습니다.'
+                                    : exam.subject === '영어'
+                                    ? '장문 독해에서 문맥 파악이 미흡합니다. 특히 빈칸 추론과 요지 파악 유형에서 주제문 식별이 필요합니다.'
+                                    : '기본 개념 이해도를 높이고, 문제 유형별 접근 방법을 숙지할 필요가 있습니다.'
+                                  }
+                                </p>
+                              </div>
+
+                              {/* 오답 원인 */}
+                              <div>
+                                <div className="text-xs font-medium text-blue-800 mb-1.5">오답 원인</div>
+                                <ul className="text-sm text-blue-900 space-y-1">
+                                  <li className="flex items-start gap-2">
+                                    <span className="text-blue-500 mt-1">•</span>
+                                    <span>기본 공식 및 개념 적용 미숙 ({Math.round(wrongDetails.length * 0.4)}문항)</span>
+                                  </li>
+                                  <li className="flex items-start gap-2">
+                                    <span className="text-blue-500 mt-1">•</span>
+                                    <span>문제 조건 파악 실수 ({Math.round(wrongDetails.length * 0.3)}문항)</span>
+                                  </li>
+                                  <li className="flex items-start gap-2">
+                                    <span className="text-blue-500 mt-1">•</span>
+                                    <span>계산 실수 및 시간 부족 ({Math.round(wrongDetails.length * 0.3)}문항)</span>
+                                  </li>
+                                </ul>
+                              </div>
+
+                              {/* 학습 권장 사항 */}
+                              <div>
+                                <div className="text-xs font-medium text-blue-800 mb-1.5">학습 권장 사항</div>
+                                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                                  <ol className="text-sm text-blue-900 space-y-2">
+                                    <li className="flex items-start gap-2">
+                                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-medium">1</span>
+                                      <span>오답 문항의 관련 개념을 교재에서 다시 복습하세요.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-medium">2</span>
+                                      <span>유사 유형 문제 10~15문항을 추가로 풀어보세요.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-medium">3</span>
+                                      <span>시간을 재고 문제를 푸는 연습을 통해 시간 관리 능력을 기르세요.</span>
+                                    </li>
+                                  </ol>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PDF 인쇄 & 학부모님 공유 버튼 */}
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            onClick={() => window.print()}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-neutral-900 text-white rounded-xl font-medium hover:bg-neutral-800 transition-colors"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            PDF로 인쇄하기
+                          </button>
+                          <button
+                            onClick={() => {
+                              // 카카오톡 공유 API 호출 준비
+                              const shareData = {
+                                studentName: selectedStudent,
+                                examName: exam.name,
+                                score: exam.score,
+                                rank: exam.rank,
+                                totalStudents: exam.totalStudents,
+                                wrongCount: exam.wrongCount,
+                                subject: exam.subject,
+                              };
+                              console.log('카카오톡 공유 데이터:', shareData);
+                              // TODO: 실제 카카오톡 API 연동
+                              alert(`학부모님께 카카오톡으로 성적 결과를 공유합니다.\n\n학생: ${selectedStudent}\n시험: ${exam.name}\n점수: ${exam.score}점 (${exam.rank}등/${exam.totalStudents}명)`);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-[#FEE500] text-[#3C1E1E] rounded-xl font-medium hover:bg-[#FDD835] transition-colors"
+                          >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 3C6.48 3 2 6.58 2 11c0 2.83 1.87 5.31 4.68 6.71l-.47 4.01c-.04.34.31.58.6.4l4.77-2.88c.14.01.28.01.42.01 5.52 0 10-3.58 10-8 0-4.42-4.48-8-10-8z"/>
+                            </svg>
+                            학부모님 공유
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* 시험이 선택되지 않았을 때 안내 */}
+            {!selectedGeneralExam && filteredGeneralExams.length > 0 && (
+              <div className="mt-6 p-12 text-center bg-neutral-50 rounded-xl border border-neutral-200">
+                <div className="text-neutral-400 mb-2">
+                  <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-neutral-700 mb-1">시험을 선택해주세요</h3>
+                <p className="text-sm text-neutral-500">위에서 확인하고 싶은 시험을 선택하면 상세 결과를 볼 수 있습니다.</p>
+              </div>
+            )}
+            </>
           )}
         </div>
       </section>

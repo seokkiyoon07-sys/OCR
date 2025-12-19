@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import SNarOCRLayout from '@/components/SNarOCRLayout';
 import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
 
@@ -27,14 +27,93 @@ interface Exam {
   gradeCutoffs: GradeCutoff[];
 }
 
-// Mock data
+// 월 필터 옵션
+const MONTHS = [
+  { value: '2024-12', label: '12월' },
+  { value: '2025-01', label: '1월' },
+];
+
+// Mock data - 다양한 월별 데이터 추가
 const mockExams: Exam[] = [
+  // 12월 시험들
   {
     id: '1',
-    name: '2025학년도 수능 국어',
+    name: '12월 1주차 수학 테스트',
+    examType: '일반시험',
+    subject: '수학',
+    date: '2024-12-02',
+    totalQuestions: 20,
+    questions: Array.from({ length: 20 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: 5,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 130 },
+      { grade: 2, minScore: 80, standardScore: 120 },
+      { grade: 3, minScore: 70, standardScore: 110 },
+      { grade: 4, minScore: 60, standardScore: 100 },
+      { grade: 5, minScore: 50, standardScore: 90 },
+      { grade: 6, minScore: 40, standardScore: 80 },
+      { grade: 7, minScore: 30, standardScore: 70 },
+      { grade: 8, minScore: 20, standardScore: 60 },
+      { grade: 9, minScore: 0, standardScore: 50 },
+    ],
+  },
+  {
+    id: '2',
+    name: '12월 1주차 영어 테스트',
+    examType: '일반시험',
+    subject: '영어',
+    date: '2024-12-03',
+    totalQuestions: 25,
+    questions: Array.from({ length: 25 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: 4,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 100 },
+      { grade: 2, minScore: 80, standardScore: 95 },
+      { grade: 3, minScore: 70, standardScore: 90 },
+      { grade: 4, minScore: 60, standardScore: 85 },
+      { grade: 5, minScore: 50, standardScore: 80 },
+      { grade: 6, minScore: 40, standardScore: 75 },
+      { grade: 7, minScore: 30, standardScore: 70 },
+      { grade: 8, minScore: 20, standardScore: 65 },
+      { grade: 9, minScore: 0, standardScore: 60 },
+    ],
+  },
+  {
+    id: '3',
+    name: '12월 2주차 국어 테스트',
+    examType: '일반시험',
+    subject: '국어',
+    date: '2024-12-09',
+    totalQuestions: 30,
+    questions: Array.from({ length: 30 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: i < 25 ? 3 : 4,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 92, standardScore: 131 },
+      { grade: 2, minScore: 85, standardScore: 124 },
+      { grade: 3, minScore: 77, standardScore: 116 },
+      { grade: 4, minScore: 65, standardScore: 105 },
+      { grade: 5, minScore: 52, standardScore: 93 },
+      { grade: 6, minScore: 37, standardScore: 80 },
+      { grade: 7, minScore: 25, standardScore: 68 },
+      { grade: 8, minScore: 14, standardScore: 56 },
+      { grade: 9, minScore: 0, standardScore: 44 },
+    ],
+  },
+  {
+    id: '4',
+    name: '2024학년도 12월 모의고사 국어',
     examType: '모의고사',
     subject: '국어',
-    date: '2024-11-14',
+    date: '2024-12-15',
     totalQuestions: 45,
     questions: Array.from({ length: 45 }, (_, i) => ({
       questionNumber: i + 1,
@@ -54,11 +133,11 @@ const mockExams: Exam[] = [
     ],
   },
   {
-    id: '2',
-    name: '2025학년도 수능 수학',
+    id: '5',
+    name: '2024학년도 12월 모의고사 수학',
     examType: '모의고사',
     subject: '수학',
-    date: '2024-11-14',
+    date: '2024-12-15',
     totalQuestions: 30,
     questions: Array.from({ length: 30 }, (_, i) => ({
       questionNumber: i + 1,
@@ -78,11 +157,156 @@ const mockExams: Exam[] = [
     ],
   },
   {
-    id: '3',
-    name: '2025학년도 수능 영어',
+    id: '6',
+    name: '2024학년도 12월 모의고사 영어',
     examType: '모의고사',
     subject: '영어',
-    date: '2024-11-14',
+    date: '2024-12-15',
+    totalQuestions: 45,
+    questions: Array.from({ length: 45 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: 2,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 100 },
+      { grade: 2, minScore: 80, standardScore: 95 },
+      { grade: 3, minScore: 70, standardScore: 90 },
+      { grade: 4, minScore: 60, standardScore: 85 },
+      { grade: 5, minScore: 50, standardScore: 80 },
+      { grade: 6, minScore: 40, standardScore: 75 },
+      { grade: 7, minScore: 30, standardScore: 70 },
+      { grade: 8, minScore: 20, standardScore: 65 },
+      { grade: 9, minScore: 0, standardScore: 60 },
+    ],
+  },
+  // 1월 시험들
+  {
+    id: '7',
+    name: '1월 1주차 수학 테스트',
+    examType: '일반시험',
+    subject: '수학',
+    date: '2025-01-06',
+    totalQuestions: 20,
+    questions: Array.from({ length: 20 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: 5,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 130 },
+      { grade: 2, minScore: 80, standardScore: 120 },
+      { grade: 3, minScore: 70, standardScore: 110 },
+      { grade: 4, minScore: 60, standardScore: 100 },
+      { grade: 5, minScore: 50, standardScore: 90 },
+      { grade: 6, minScore: 40, standardScore: 80 },
+      { grade: 7, minScore: 30, standardScore: 70 },
+      { grade: 8, minScore: 20, standardScore: 60 },
+      { grade: 9, minScore: 0, standardScore: 50 },
+    ],
+  },
+  {
+    id: '8',
+    name: '1월 1주차 영어 테스트',
+    examType: '일반시험',
+    subject: '영어',
+    date: '2025-01-07',
+    totalQuestions: 25,
+    questions: Array.from({ length: 25 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: 4,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 100 },
+      { grade: 2, minScore: 80, standardScore: 95 },
+      { grade: 3, minScore: 70, standardScore: 90 },
+      { grade: 4, minScore: 60, standardScore: 85 },
+      { grade: 5, minScore: 50, standardScore: 80 },
+      { grade: 6, minScore: 40, standardScore: 75 },
+      { grade: 7, minScore: 30, standardScore: 70 },
+      { grade: 8, minScore: 20, standardScore: 65 },
+      { grade: 9, minScore: 0, standardScore: 60 },
+    ],
+  },
+  {
+    id: '9',
+    name: '1월 2주차 국어 테스트',
+    examType: '일반시험',
+    subject: '국어',
+    date: '2025-01-13',
+    totalQuestions: 30,
+    questions: Array.from({ length: 30 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: i < 25 ? 3 : 4,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 92, standardScore: 131 },
+      { grade: 2, minScore: 85, standardScore: 124 },
+      { grade: 3, minScore: 77, standardScore: 116 },
+      { grade: 4, minScore: 65, standardScore: 105 },
+      { grade: 5, minScore: 52, standardScore: 93 },
+      { grade: 6, minScore: 37, standardScore: 80 },
+      { grade: 7, minScore: 25, standardScore: 68 },
+      { grade: 8, minScore: 14, standardScore: 56 },
+      { grade: 9, minScore: 0, standardScore: 44 },
+    ],
+  },
+  {
+    id: '10',
+    name: '2025학년도 1월 모의고사 국어',
+    examType: '모의고사',
+    subject: '국어',
+    date: '2025-01-18',
+    totalQuestions: 45,
+    questions: Array.from({ length: 45 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: i < 35 ? 2 : 3,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 92, standardScore: 131 },
+      { grade: 2, minScore: 85, standardScore: 124 },
+      { grade: 3, minScore: 77, standardScore: 116 },
+      { grade: 4, minScore: 65, standardScore: 105 },
+      { grade: 5, minScore: 52, standardScore: 93 },
+      { grade: 6, minScore: 37, standardScore: 80 },
+      { grade: 7, minScore: 25, standardScore: 68 },
+      { grade: 8, minScore: 14, standardScore: 56 },
+      { grade: 9, minScore: 0, standardScore: 44 },
+    ],
+  },
+  {
+    id: '11',
+    name: '2025학년도 1월 모의고사 수학',
+    examType: '모의고사',
+    subject: '수학',
+    date: '2025-01-18',
+    totalQuestions: 30,
+    questions: Array.from({ length: 30 }, (_, i) => ({
+      questionNumber: i + 1,
+      correctAnswer: i >= 22 ? String(Math.floor(Math.random() * 900) + 100) : ['1', '2', '3', '4', '5'][Math.floor(Math.random() * 5)],
+      points: i < 21 ? 2 : i < 28 ? 3 : 4,
+    })),
+    gradeCutoffs: [
+      { grade: 1, minScore: 90, standardScore: 134 },
+      { grade: 2, minScore: 80, standardScore: 127 },
+      { grade: 3, minScore: 70, standardScore: 120 },
+      { grade: 4, minScore: 55, standardScore: 108 },
+      { grade: 5, minScore: 40, standardScore: 95 },
+      { grade: 6, minScore: 28, standardScore: 82 },
+      { grade: 7, minScore: 18, standardScore: 70 },
+      { grade: 8, minScore: 10, standardScore: 58 },
+      { grade: 9, minScore: 0, standardScore: 46 },
+    ],
+  },
+  {
+    id: '12',
+    name: '2025학년도 1월 모의고사 영어',
+    examType: '모의고사',
+    subject: '영어',
+    date: '2025-01-18',
     totalQuestions: 45,
     questions: Array.from({ length: 45 }, (_, i) => ({
       questionNumber: i + 1,
@@ -109,10 +333,26 @@ export default function AdminExamsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [activeTab, setActiveTab] = useState<'questions' | 'grades'>('questions');
+  const [selectedMonth, setSelectedMonth] = useState<string>('2024-12');
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+
+  // 선택된 월의 시험 목록 필터링
+  const filteredExams = useMemo(() => {
+    return exams.filter(exam => exam.date.startsWith(selectedMonth));
+  }, [exams, selectedMonth]);
+
+  // 선택된 시험 찾기
+  const selectedExam = useMemo(() => {
+    if (!selectedExamId) return null;
+    return exams.find(exam => exam.id === selectedExamId) || null;
+  }, [exams, selectedExamId]);
 
   const handleDelete = (id: string) => {
     if (confirm('정말 삭제하시겠습니까?')) {
       setExams(exams.filter(e => e.id !== id));
+      if (selectedExamId === id) {
+        setSelectedExamId(null);
+      }
     }
   };
 
@@ -160,9 +400,96 @@ export default function AdminExamsPage() {
           </div>
         </div>
 
+        {/* Month Filter + Exam Dropdown */}
+        <div className="bg-white rounded-xl border border-neutral-200 p-4">
+          {/* Month Tabs */}
+          <div className="flex gap-2 mb-4">
+            {MONTHS.map((month) => (
+              <button
+                key={month.value}
+                onClick={() => {
+                  setSelectedMonth(month.value);
+                  setSelectedExamId(null);
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedMonth === month.value
+                    ? 'bg-blue-400 text-white'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                }`}
+              >
+                {month.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Exam Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedExamId || ''}
+              onChange={(e) => setSelectedExamId(e.target.value || null)}
+              className="w-full px-4 py-3 border border-blue-200 rounded-lg bg-blue-50 text-neutral-800 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none cursor-pointer"
+            >
+              <option value="">시험을 선택하세요</option>
+              {filteredExams.map((exam) => (
+                <option key={exam.id} value={exam.id}>
+                  {exam.name} ({exam.date}) - {exam.examType}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none" size={20} />
+          </div>
+
+          {/* Selected Exam Info */}
+          {selectedExam && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700">
+                    {selectedExam.subject}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                    selectedExam.examType === '모의고사'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-neutral-100 text-neutral-500'
+                  }`}>
+                    {selectedExam.examType}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEditingExam(selectedExam)}
+                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(selectedExam.id)}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="text-sm text-neutral-600">
+                <span className="font-medium text-neutral-800">{selectedExam.name}</span>
+                <span className="mx-2">·</span>
+                <span>{selectedExam.date}</span>
+                <span className="mx-2">·</span>
+                <span>{selectedExam.totalQuestions}문제</span>
+              </div>
+            </div>
+          )}
+
+          {filteredExams.length === 0 && (
+            <div className="mt-4 text-center py-6 text-neutral-500 text-sm">
+              해당 월에 등록된 시험이 없습니다.
+            </div>
+          )}
+        </div>
+
         {/* Exam List */}
         <div className="space-y-4">
-          {exams.map(exam => (
+          {filteredExams.map(exam => (
             <div key={exam.id} className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
               {/* Exam Header */}
               <div
