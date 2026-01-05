@@ -3,6 +3,7 @@
  * 에러 로그를 파일로 저장하는 유틸리티
  * - 로그 로테이션: 5MB 초과 시 로테이션, 백업 2개 유지
  * - 중복 에러 방지: 동일 에러 1분 내 재발 시 무시
+ * - EIO 에러 필터링: 빌드 시 발생하는 노이즈 에러 무시
  */
 
 import fs from 'fs';
@@ -19,8 +20,26 @@ const MAX_BACKUP_COUNT = 2;
 // 중복 에러 방지 시간 (1분)
 const DUPLICATE_SUPPRESS_MS = 60 * 1000;
 
+// 무시할 에러 패턴 (빌드 시 발생하는 노이즈 에러들)
+const IGNORED_ERROR_PATTERNS = [
+  'write EIO',
+  'write EPIPE',
+  'ENOENT',
+  'console-exit.js',
+];
+
 // 최근 에러 기록 (중복 방지용)
 const recentErrors: Map<string, number> = new Map();
+
+// 에러 필터링 체크
+function shouldIgnoreError(message: string, error?: unknown): boolean {
+  const errorStr = error instanceof Error 
+    ? `${error.message} ${error.stack || ''}`
+    : String(error || '');
+  const fullMessage = `${message} ${errorStr}`;
+  
+  return IGNORED_ERROR_PATTERNS.some(pattern => fullMessage.includes(pattern));
+}
 
 // 로그 디렉토리 생성
 function ensureLogDir() {
@@ -125,6 +144,11 @@ export const logger = {
   },
 
   error(message: string, error?: unknown, ...args: unknown[]) {
+    // 빌드 노이즈 에러 필터링 (EIO, EPIPE 등)
+    if (shouldIgnoreError(message, error)) {
+      return;
+    }
+    
     let errorDetails = '';
     if (error instanceof Error) {
       errorDetails = ` | ${error.name}: ${error.message}`;
