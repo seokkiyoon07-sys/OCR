@@ -1101,13 +1101,13 @@ export default function AnswerEditor({
           <div className="mt-2 relative">
             <button
               type="button"
-              onClick={() => setIsKoreanElectiveDropdownOpen(!isKoreanElectiveDropdownOpen)}
+              onClick={() => setIsKoreanDropdownOpen(!isKoreanDropdownOpen)}
               className="w-full flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm hover:border-purple-300"
             >
               <span>{selectedKoreanElective || '선택과목 선택'}</span>
-              <ChevronDown size={16} className={`transition-transform ${isKoreanElectiveDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={16} className={`transition-transform ${isKoreanDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-            {isKoreanElectiveDropdownOpen && (
+            {isKoreanDropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-10 py-1">
                 {KOREAN_ELECTIVES.map((elective) => (
                   <button
@@ -1115,7 +1115,7 @@ export default function AnswerEditor({
                     type="button"
                     onClick={() => {
                       setSelectedKoreanElective(elective);
-                      setIsKoreanElectiveDropdownOpen(false);
+                      setIsKoreanDropdownOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
                       selectedKoreanElective === elective ? 'bg-purple-100 text-purple-800' : ''

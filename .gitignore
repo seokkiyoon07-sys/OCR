@@ -13,6 +13,13 @@
 # testing
 /coverage
 
+# Playwright
+playwright/.auth/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
 # next.js
 /.next/
 /out/
@@ -41,3 +48,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Log files
+logs/
+*.log
