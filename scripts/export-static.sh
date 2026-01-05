@@ -2,29 +2,34 @@
 # Static export script for Next.js 16 (Turbopack)
 # Creates out/ directory with static HTML files for nginx serving
 
-set -e
-cd /opt/omr/frontend
+set -euo pipefail
+
+# scripts/ 폴더 안에 있으니, 한 단계 위가 repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$REPO_ROOT"
 
 echo "📦 Preparing static export..."
+echo "📍 Working directory: $(pwd)"
 
 # Clean and create out directory
 rm -rf out
 mkdir -p out
 
 # Copy HTML files from server/app to out
+shopt -s nullglob
 for html_file in .next/server/app/*.html; do
-    if [[ -f "$html_file" ]]; then
-        filename=$(basename "$html_file")
-        # index.html stays as index.html, others keep their names
-        if [[ "$filename" == "_not-found.html" ]]; then
-            cp "$html_file" "out/404.html"
-        elif [[ "$filename" == "_global-error.html" ]]; then
-            cp "$html_file" "out/500.html"
-        else
-            cp "$html_file" "out/$filename"
-        fi
+    filename="$(basename "$html_file")"
+    if [[ "$filename" == "_not-found.html" ]]; then
+        cp "$html_file" "out/404.html"
+    elif [[ "$filename" == "_global-error.html" ]]; then
+        cp "$html_file" "out/500.html"
+    else
+        cp "$html_file" "out/$filename"
     fi
 done
+shopt -u nullglob
 
 # Copy static assets (_next/static)
 mkdir -p out/_next
@@ -42,5 +47,5 @@ fi
 
 echo "✅ Static export completed!"
 echo ""
-echo "📁 Output directory: /opt/omr/frontend/out"
+echo "📁 Output directory: $(pwd)/out"
 ls -la out/
