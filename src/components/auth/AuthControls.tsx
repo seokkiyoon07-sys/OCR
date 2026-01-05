@@ -1,16 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { User } from 'lucide-react';
-import AuthModal from './AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
+
+// SNarGPT 로그인 페이지 URL
+const SNARGPT_LOGIN_URL = 'https://snargpt.ai/signin';
 
 export default function AuthControls() {
   const { isAuthenticated, userId, logout, hasMounted } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  // SNarGPT 로그인 페이지로 리다이렉트 (현재 URL을 redirect 파라미터로 전달)
+  const handleLogin = () => {
+    const currentUrl = window.location.href;
+    const loginUrl = `${SNARGPT_LOGIN_URL}?redirect=${encodeURIComponent(currentUrl)}`;
+    window.location.href = loginUrl;
+  };
 
   // Render consistent UI on server and client before hydration completes
   // This prevents hydration mismatch between server (always shows login) and client
@@ -46,12 +50,11 @@ export default function AuthControls() {
         <button
           className="px-3 py-2 text-sm rounded-xl bg-black text-white hover:bg-neutral-800"
           type="button"
-          onClick={openModal}
+          onClick={handleLogin}
         >
           로그인
         </button>
       )}
-      <AuthModal open={isModalOpen && !isAuthenticated} onClose={closeModal} />
     </>
   );
 }

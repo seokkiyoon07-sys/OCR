@@ -6,6 +6,7 @@ export interface SubjectSelection {
   socialCategory: string;
   scienceCategory: string;
   historyCategory: string;
+  mathCategory?: string;  // 수학 선택과목
 }
 
 export interface DerivedSubjectInfo {
@@ -59,10 +60,22 @@ export const deriveSubjectInfo = ({
   socialCategory,
   scienceCategory,
   historyCategory,
+  mathCategory,
 }: SubjectSelection): DerivedSubjectInfo => {
   const baseSubject = subject.trim();
   const hasBaseSelection =
     baseSubject !== '' && baseSubject !== '과목을 선택하세요';
+
+  // 수학 선택과목 처리
+  if (baseSubject === '수학' && mathCategory && mathCategory.trim()) {
+    const subjectName = mathCategory.trim();
+    const subjectCode = SUBJECT_CODE_LOOKUP[subjectName] ?? hashSubject(subjectName);
+    return {
+      subjectName,
+      subjectCode,
+      paperLabel: `수학-${subjectName}`,
+    };
+  }
 
   const resolvedLeafCandidate =
     (subjectCategory === 'social' && socialCategory.trim()) ||

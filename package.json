@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && ./scripts/export-static.sh",
+    "build:next": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "export": "next build && next export"
+    "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.2.6",
     "lucide-react": "^0.468.0",
     "next": "^16.1.0",
     "react": "19.1.0",
@@ -18,10 +19,12 @@
     "recharts": "^3.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
+    "baseline-browser-mapping": "^2.9.11",
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.1.0",
     "postcss": "^8.5.1",
